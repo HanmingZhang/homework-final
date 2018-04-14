@@ -48,8 +48,7 @@ class ShaderProgram {
   unifGodrayExposure: WebGLUniformLocation;
   unifGodrayNumSamples: WebGLUniformLocation;
 
-  unifCartoonEdgeThickness: WebGLUniformLocation;
-  unifCartoonKuwaharaRadius: WebGLUniformLocation;
+  unifEnableTexture: WebGLUniformLocation;
 
   unifFadeLevel: WebGLUniformLocation;
 
@@ -90,9 +89,8 @@ class ShaderProgram {
     this.unifGodrayExposure = gl.getUniformLocation(this.prog, "u_Exposure");
     this.unifGodrayNumSamples = gl.getUniformLocation(this.prog, "u_NumSamples");
 
-    this.unifCartoonEdgeThickness = gl.getUniformLocation(this.prog, "u_EdgeThickness");
-    this.unifCartoonKuwaharaRadius = gl.getUniformLocation(this.prog, "u_Radius");
 
+    this.unifEnableTexture = gl.getUniformLocation(this.prog, "u_EnableTexture");
 
     this.unifFadeLevel = gl.getUniformLocation(this.prog, "u_fadeLevel");
 
@@ -251,17 +249,11 @@ class ShaderProgram {
     }
   }
 
-  setCartoonEdgeThickness(t: number){
-    this.use();
-    if(this.unifCartoonEdgeThickness !== -1){
-      gl.uniform1f(this.unifCartoonEdgeThickness, t);
-    }
-  }
 
-  setCartoonKuwaharaRadius(r: number){
+  setEnableTexutre(t: boolean){
     this.use();
-    if(this.unifCartoonKuwaharaRadius !== -1){
-      gl.uniform1f(this.unifCartoonKuwaharaRadius, r);
+    if(this.unifEnableTexture !== -1){
+      gl.uniform1i(this.unifEnableTexture, t ? 1 : 0);
     }
   }
 

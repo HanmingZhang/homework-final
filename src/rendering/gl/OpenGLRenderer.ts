@@ -49,9 +49,6 @@ class OpenGLRenderer {
 
   post32PassesGodRay: PostProcess[];
 
-  post32PassesCartoon: PostProcess[];
-  cartoon_paper_texture: Texture;
-  cartoon_frame_texture: Texture;
 
   currentTime: number; // timer number to apply to all drawing shaders
 
@@ -109,8 +106,6 @@ class OpenGLRenderer {
 
     this.post32PassesGodRay = [];
 
-    this.post32PassesCartoon = [];
-
 
 
     // TODO: these are placeholder post shaders, replace them with something good
@@ -146,19 +141,6 @@ class OpenGLRenderer {
     // combine
     this.add32BitPass(this.post32PassesGodRay, new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/combineFragment-frag.glsl'))));
      
-    // ---------------------------------
-    // Cartoon passes
-    // sobel edge detection
-    this.add32BitPass(this.post32PassesCartoon, new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/sobeledgedetection-frag.glsl'))));
-    // Kuwahara effects
-    this.add32BitPass(this.post32PassesCartoon, new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/kuwahara-frag.glsl'))));
-    this.cartoon_paper_texture = new Texture('resources/textures/paper.jpg');
-    this.post32PassesCartoon[1].setupTexUnits(["tex_Paper"]);
-    // combine and add a frame
-    this.add32BitPass(this.post32PassesCartoon, new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/combineMultiAddFrameFragment-frag.glsl'))));
-    this.cartoon_frame_texture = new Texture('resources/textures/frame.png');        
-    this.post32PassesCartoon[2].setupTexUnits(["tex_Frame"]);
-    
 
     if (!gl.getExtension("OES_texture_float_linear")) {
       console.error("OES_texture_float_linear not available");
@@ -214,14 +196,6 @@ class OpenGLRenderer {
     this.post32PassesGodRay[1].setHighLightWeight(w2);
   }
 
-  setCartoonEdgeThickness(t: number){
-    this.post32PassesCartoon[0].setCartoonEdgeThickness(t);
-  }
-
-  setCartoonKuwaharaRadius(r: number){
-    this.post32PassesCartoon[1].setCartoonKuwaharaRadius(r);
-  }
-
   setFadeLevel(l: number){
     this.fadePass.setFadeLevel(l);
   }
@@ -243,12 +217,6 @@ class OpenGLRenderer {
     this.post32PassesBloom[1].setWidth(width); //horizontal blur pass
     this.post32PassesBloom[2].setHeight(height); //vertical blur pass
     
-    // set Cartoon passes size
-    this.post32PassesCartoon[0].setWidth(width); // sobel edge detection
-    this.post32PassesCartoon[0].setHeight(height); // sobel edge detection
-
-    this.post32PassesCartoon[1].setWidth(width); // kuwahara
-    this.post32PassesCartoon[1].setHeight(height); // kuwahara
 
 
     // --- GBUFFER CREATION START ---
@@ -429,10 +397,18 @@ class OpenGLRenderer {
     gbProg.setProjMatrix(proj);
 
     gbProg.setTime(this.currentTime);
-
+    
+    let i = 0 // control which drawable use textures and which use uniform color
     for (let drawable of drawables) {
+      if(i === 0){
+        gbProg.setEnableTexutre(true);
+      }
+      else{
+        gbProg.setEnableTexutre(false);
+      }
       gbProg.setModelMatrix(drawable.model);
       gbProg.draw(drawable);
+      i++;
     }
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -486,121 +462,67 @@ class OpenGLRenderer {
       case 2:
         thisPost32Passes = this.post32PassesGodRay;
         break;
-      // Cartoon style post process
-      case 3:
-        thisPost32Passes = this.post32PassesCartoon;
-        break;
       default:
         break;
     }
     let i = 0;
 
-    // --------------------------------                              
-    // Two parallel post process pipeline 
-    if(postProcessType == 3){
-      // Edge detection pass
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[0]);
-      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-      gl.disable(gl.DEPTH_TEST);
-      gl.enable(gl.BLEND);
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, this.originalTargetFromGBuffer);  
-      thisPost32Passes[0].draw();
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-
-      // Kuwahara
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32BuffersTwo[0]);
-      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-      gl.disable(gl.DEPTH_TEST);
-      gl.enable(gl.BLEND);
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, this.originalTargetFromGBuffer);  
-      this.post32PassesCartoon[1].bindTexToUnit("tex_Paper", this.cartoon_paper_texture, 2);
-      thisPost32Passes[1].draw();
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-
-      // Combine
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[1]);
-      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-      gl.disable(gl.DEPTH_TEST);
-      gl.enable(gl.BLEND);
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[0]); 
-      gl.activeTexture(gl.TEXTURE1);
-      gl.bindTexture(gl.TEXTURE_2D, this.post32TargetsTwo[0]); 
-      this.post32PassesCartoon[2].bindTexToUnit("tex_Frame", this.cartoon_frame_texture, 3);
-      thisPost32Passes[2].draw();
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-
-      i = 3;
-    }
-
     // --------------------------------                          
     // Single post process pipeline 
     // for Default, Bloom, God ray post porcesses
-    else{
-      for (i = 0; i < thisPost32Passes.length; i++){
-        // Pingpong framebuffers for each pass.
-        // In other words, repeatedly flip between storing the output of the
-        // current post-process pass in post32Buffers[1] and post32Buffers[0].
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[(i + 1) % 2]);
+    for (i = 0; i < thisPost32Passes.length; i++){
+      // Pingpong framebuffers for each pass.
+      // In other words, repeatedly flip between storing the output of the
+      // current post-process pass in post32Buffers[1] and post32Buffers[0].
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[(i + 1) % 2]);
 
-        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-        gl.disable(gl.DEPTH_TEST);
-        gl.enable(gl.BLEND);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+      gl.disable(gl.DEPTH_TEST);
+      gl.enable(gl.BLEND);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        // Recall that each frame buffer is associated with a texture that stores
-        // the output of a render pass. post32Targets is the array that stores
-        // these textures, so we alternate reading from the 0th and 1th textures
-        // each frame (the texture we wrote to in our previous render pass).
-        gl.activeTexture(gl.TEXTURE0);
-        // default / bloom rain post process passes need to start from 
-        // the orignal G-buffer render
-        if(i == 0 && (postProcessType == 0 || postProcessType == 1)){
-          gl.bindTexture(gl.TEXTURE_2D, this.originalTargetFromGBuffer);        
-        }
-        else{
-          gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[(i) % 2]);
-        }
-
-        // final pass of Bloom post-process
-        // we need to bind another texture, which is the orginal render
-        if(i == thisPost32Passes.length - 1 && postProcessType == 1){
-          gl.activeTexture(gl.TEXTURE1);
-          gl.bindTexture(gl.TEXTURE_2D, this.originalTargetFromGBuffer);                
-        }
-
-        // final pass of God ray post-process
-        // we need to bind another texture, which is the orginal render
-        if(i == thisPost32Passes.length - 1 && postProcessType == 2){
-          gl.activeTexture(gl.TEXTURE1);
-          gl.bindTexture(gl.TEXTURE_2D, this.originalTargetFromGBuffer);                
-        }
-
-
-
-        thisPost32Passes[i].draw();
-
-        // bind default frame buffer
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      // Recall that each frame buffer is associated with a texture that stores
+      // the output of a render pass. post32Targets is the array that stores
+      // these textures, so we alternate reading from the 0th and 1th textures
+      // each frame (the texture we wrote to in our previous render pass).
+      gl.activeTexture(gl.TEXTURE0);
+      // default / bloom rain post process passes need to start from 
+      // the orignal G-buffer render
+      if(i == 0 && (postProcessType == 0 || postProcessType == 1)){
+        gl.bindTexture(gl.TEXTURE_2D, this.originalTargetFromGBuffer);        
       }
+      else{
+        gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[(i) % 2]);
+      }
+
+      // final pass of Bloom post-process
+      // we need to bind another texture, which is the orginal render
+      if(i == thisPost32Passes.length - 1 && postProcessType == 1){
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, this.originalTargetFromGBuffer);                
+      }
+
+      // final pass of God ray post-process
+      // we need to bind another texture, which is the orginal render
+      if(i == thisPost32Passes.length - 1 && postProcessType == 2){
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, this.originalTargetFromGBuffer);                
+      }
+
+
+
+      thisPost32Passes[i].draw();
+
+      // bind default frame buffer
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
+    
 
 
     // --------------------------------                          
     // apply tonemapping
     // TODO: if you significantly change your framework, ensure this doesn't cause bugs!
     // render to the first 8 bit buffer if there is more post, else default buffer
-    // if (thisPost8Passes.length > 0) {
-    //    gl.bindFramebuffer(gl.FRAMEBUFFER, this.post8Buffers[0]);
-    // }
-    // else {
-    //    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    // }
 
     if(this.camMode == CAMERA_MODE.INTERACTIVE_MODE){
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);

@@ -15,18 +15,28 @@ out vec4 fragColor[3]; // The data in the ith index of this array of outputs
                        // such as albedo, normal, and position, as
                        // separate images from a single render pass.
 
+uniform int u_EnableTexture;
 uniform sampler2D tex_Color;
 
+uniform vec4 u_Color;
 
 void main() {
-    // TODO: pass proper data into gbuffers
-    // Presently, the provided shader passes "nothing" to the first
-    // two gbuffers and basic color to the third.
 
-    vec3 col = texture(tex_Color, fs_UV).rgb;
+    // store date into g-buffer
 
-    // if using textures, inverse gamma correct
-    col = pow(col, vec3(2.2));
+    vec3 col;
+    // USE TEXTURES
+    if(u_EnableTexture > 0){
+        col = texture(tex_Color, fs_UV).rgb;
+
+        // if using textures, inverse gamma correct
+        col = pow(col, vec3(2.2));
+    }
+    // USE UNIFORM COLOR
+    else{
+        col = u_Color.rgb;
+    }
+
 
     // fragColor[0] : RGBA 32f buffer
     // world space normal.x | world space normal.y | world space normal.z | camera space depth(-near clip ~ -far clip)

@@ -87,41 +87,26 @@ void main() {
 	if(isPixelOverlap){
 		// -------------------------------------------------------------
 		// directional light lambert term
-		// float diffuseTerm = dot(normalize(normal_world_space), normalize(directional_lighting_dir));
+		float diffuseTerm = dot(normalize(normal_world_space), normalize(directional_lighting_dir));
 
 		// -------------------------------------------------------------
 		// point light lambert term
 		// reconstruct world space position from screen space position and camera space depth
 
-		vec2 ndc_pos = vec2((2.0 * gl_FragCoord.x / u_Width) - 1.0, 
-							1.0 - (2.0 * gl_FragCoord.y / u_Height));
-
-
-		vec4 ndc_pos_vec4 = vec4(camera_space_depth * ndc_pos.x, camera_space_depth * ndc_pos.y, camera_space_depth, camera_space_depth);
+		// vec2 ndc_pos = vec2((2.0 * gl_FragCoord.x / u_Width) - 1.0, 
+		// 					1.0 - (2.0 * gl_FragCoord.y / u_Height));
+		// vec4 ndc_pos_vec4 = vec4(camera_space_depth * ndc_pos.x, camera_space_depth * ndc_pos.y, camera_space_depth, camera_space_depth);
+		// vec4 camera_space_pos = inverse(u_Proj) * ndc_pos_vec4;
+		// camera_space_pos.z = -camera_space_depth;
+		// camera_space_pos.w = 1.0;
+		// vec4 world_space_pos = inverse(u_View) * camera_space_pos;
 		
-		vec4 camera_space_pos = inverse(u_Proj) * ndc_pos_vec4;
-		camera_space_pos.z = -camera_space_depth;
-		camera_space_pos.w = 1.0;
-
-		vec4 world_space_pos = inverse(u_View) * camera_space_pos;
-		
-		float diffuseTerm = 0.0;
-		float ambientTerm = 0.4;
+		// float diffuseTerm = 0.0;
+		float ambientTerm = 0.08;
 
 		// Lambert shading
-		// if(u_ShadingType == 0){
-			diffuseTerm = dot(normalize(normal_world_space), normalize(point_light_pos - world_space_pos.xyz));
-		// }
-		// Ramp / Toon shading
-		// else{
-		// 	float rampUnitLength =  0.25;
-		// 	float rampUnitValue = 0.33;
-		// 	float rampCoord = max(dot(normalize(normal_world_space), normalize(point_light_pos - world_space_pos.xyz)), 0.0);
-		// 	int rampLevel = int(rampCoord / rampUnitLength);
-		// 	diffuseTerm = float(rampLevel) * rampUnitValue;
-		// 	ambientTerm = 0.2;
-		// }
-
+		// diffuseTerm = dot(normalize(normal_world_space), normalize(point_light_pos - world_space_pos.xyz));
+		
 		float lightIntensity = diffuseTerm + ambientTerm;   //Add a small float value to the color multiplier
 															//to simulate ambient lighting. This ensures that faces that are not
 															//lit by our point light are not completely black.
@@ -131,7 +116,7 @@ void main() {
 	}
 	// background
 	else{
-		
+		// TODO : use sky box here
 		out_Col = vec4(65.0 / 255.0, 166.0 / 255.0, 136.0 / 255.0, 1.0);
 	}
 

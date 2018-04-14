@@ -119,6 +119,7 @@ function loadScene() {
   // console.log(modelMatrix);
   mat4.scale(modelMatrix, modelMatrix, vec3.fromValues(50.0, 1.0, 50.0));  
   mat4.rotateX(modelMatrix, modelMatrix, -0.5 * 3.1415926);
+  mat4.translate(modelMatrix, modelMatrix, vec3.fromValues(0.0, 0.0, -2.0));
   square = new Square(vec3.fromValues(0, 0, 0), modelMatrix);
   square.create();
 
@@ -162,13 +163,13 @@ function main() {
 
 
   // -------------------------------------------------------------------
-  const wahooDeferred = new ShaderProgram([
+  const standardDeferred = new ShaderProgram([
     new Shader(gl.VERTEX_SHADER, require('./shaders/standard-vert.glsl')),
     new Shader(gl.FRAGMENT_SHADER, require('./shaders/standard-frag.glsl')),
     ]);
 
-  wahooDeferred.setupTexUnits(["tex_Color"]);
-  
+  standardDeferred.setupTexUnits(["tex_Color"]);
+  standardDeferred.setGeometryColor(vec4.fromValues(0.2, 0.2, 0.2, 1.0));
 
 
   // -------------------------------------------------------------------
@@ -191,14 +192,11 @@ function main() {
       case 'GodRay':
         postProcessType = 2;
         break;
-      case 'Cartoon':
-        postProcessType = 3;
-        break;
       default:
         break;
     }
   }
-  gui.add(controls, 'PostProcessingType', ['Null', 'Default', 'Bloom', 'GodRay', 'Cartoon']).onChange(setPostProcessType);
+  gui.add(controls, 'PostProcessingType', ['Null', 'Default', 'Bloom', 'GodRay']).onChange(setPostProcessType);
   setPostProcessType();
 
 
@@ -256,22 +254,6 @@ function main() {
   f2.close();  
 
 
-  // Cartoon paras folder
-  function setCartoonEdgeThickness(){
-    renderer.setCartoonEdgeThickness(controls.EdgeThickness);
-  }
-  setCartoonEdgeThickness();
-
-  function setCartoonKuwahara(){
-    renderer.setCartoonKuwaharaRadius(controls.KuwaharaRadius);
-  }
-  setCartoonKuwahara();
-
-  var f3 = gui.addFolder('Cartoon Paras');
-  f3.add(controls, 'EdgeThickness', 0.1, 5.0).step(0.1).onChange(setCartoonEdgeThickness);
-  f3.add(controls, 'KuwaharaRadius', 2.0, 7.0).step(1.0).onChange(setCartoonKuwahara);
-  f3.close();
-
 
 
 
@@ -279,7 +261,7 @@ function main() {
   // TODO : Add camera fade effect here!
   camera.addDemoCamFadeEffect(20.0, 30.0) // 10 - 16s
 
-  // TODO: Add key frame camera info
+  // TODO : Add key frame camera info
   camera.addDemoCamPos({startTime: 2.0, endTime: 25.0, startPos: vec3.fromValues(80.0, 80.0, 100.0), endPos: vec3.fromValues(80.0, 100.0, 80.0)});
   camera.addDemoCamTarget({startTime: 2.0, endTime: 25.0, startPos: vec3.fromValues(-20.0, 0, 0), endPos: vec3.fromValues(10, 0, 0)});
 
@@ -306,7 +288,7 @@ function main() {
     }
 
 
-    wahooDeferred.bindTexToUnit("tex_Color", tex0, 0);
+    standardDeferred.bindTexToUnit("tex_Color", tex0, 0);
 
     renderer.clear();
     renderer.clearGB();
@@ -320,11 +302,11 @@ function main() {
     }
 
     // forward render mesh info into gbuffers
-    renderer.renderToGBuffer(camera, wahooDeferred, [mesh0, square]);      
+    renderer.renderToGBuffer(camera, standardDeferred, [mesh0, square]);      
     // render from gbuffers into 32-bit color buffer
     renderer.renderFromGBuffer(camera);
 
-    
+
     if(camera.camMode == CAMERA_MODE.DEMO_MODE){
       // update fade level if camera is under demo mode
       renderer.setFadeLevel(camera.fadeLevel);
