@@ -6,8 +6,16 @@ import ShaderProgram, {Shader} from './ShaderProgram';
 import PostProcess from './PostProcess'
 import Square from '../../geometry/Square';
 import Icosphere from '../../geometry/Icosphere';
+import Cube from '../../geometry/Cube';
 import Texture from '../../rendering/gl/Texture';
 import {CAMERA_MODE} from '../../main';
+import Water from '../../material/Water';
+import Plane from '../../material/Plane';
+
+const shadowDepthTextureSize = 1024; // This one should be consistent with that in deferred-render.glsl
+
+// Sky box/cube
+let SkyBox: Cube;
 
 class OpenGLRenderer {
   gBuffer: WebGLFramebuffer; // framebuffer for deferred rendering
@@ -27,10 +35,6 @@ class OpenGLRenderer {
   // post-processing buffers pre-tonemapping (32-bit color)
   post32Buffers: WebGLFramebuffer[];
   post32Targets: WebGLTexture[];
-  
-  // another buffer for a parallel post processing pipeline
-  post32BuffersTwo: WebGLFramebuffer[];
-  post32TargetsTwo: WebGLTexture[];
 
   // original buffer render from g-buffer
   originalBufferFromGBuffer: WebGLFramebuffer;
@@ -44,13 +48,20 @@ class OpenGLRenderer {
   post8Passes: PostProcess[];
   post32Passes: PostProcess[];
 
-  // TODO : add extra post 32 passes shaders
+  // add extra post 32 passes shaders
   post32PassesBloom: PostProcess[];
-
   post32PassesGodRay: PostProcess[];
 
-
   currentTime: number; // timer number to apply to all drawing shaders
+
+  // shadow map
+  shadowDepthTexture: WebGLTexture;
+
+  shadowShader : ShaderProgram = new ShaderProgram([
+    new Shader(gl.VERTEX_SHADER, require('../../shaders/shadow-vert.glsl')),
+    new Shader(gl.FRAGMENT_SHADER, require('../../shaders/shadow-frag.glsl')),
+  ]);
+  lightViewProjMatrix: mat4;
 
   // the shader that renders from the gbuffers into the postbuffers
   deferredShader :  PostProcess = new PostProcess(
@@ -67,6 +78,15 @@ class OpenGLRenderer {
     new Shader(gl.VERTEX_SHADER, require('../../shaders/occlusion-vert.glsl')),
     new Shader(gl.FRAGMENT_SHADER, require('../../shaders/occlusion-frag.glsl')),
     ]);
+  
+
+  lambertShader = new ShaderProgram([
+    new Shader(gl.VERTEX_SHADER, require('../../shaders/lambert-vert.glsl')),
+    new Shader(gl.FRAGMENT_SHADER, require('../../shaders/lambert-frag.glsl')),
+    ]);
+
+  // SkyBox shader
+  skyBoxShader : ShaderProgram;
 
   // camera transition fade in/out
   fadePass : PostProcess = new PostProcess(
@@ -77,7 +97,6 @@ class OpenGLRenderer {
     // this.post8Passes.push(pass);
     passesList.push(pass);
   }
-
 
   add32BitPass(passesList: PostProcess[], pass: PostProcess) {
     // this.post32Passes.push(pass);
@@ -96,9 +115,6 @@ class OpenGLRenderer {
     // The second & thrid buffer gonna ping-pong buffer
     this.post32Buffers = [undefined, undefined];
     this.post32Targets = [undefined, undefined];
-
-    this.post32BuffersTwo = [undefined, undefined];
-    this.post32TargetsTwo = [undefined, undefined];
 
     this.post32Passes = [];
 
@@ -162,6 +178,25 @@ class OpenGLRenderer {
 
     // set default camera mode
     this.camMode = CAMERA_MODE.INTERACTIVE_MODE;
+
+
+    // setup sky box
+    this.initSkyBox();
+  }
+
+  initSkyBox(){
+    // Skybox
+    let modelMatrix = mat4.create();
+    mat4.identity(modelMatrix);
+    mat4.scale(modelMatrix, modelMatrix, vec3.fromValues(10000.0, 10000.0, 10000.0));  
+    SkyBox = new Cube(vec3.fromValues(0, 0, 0), modelMatrix);
+    SkyBox.create();
+
+    this.skyBoxShader = new ShaderProgram([
+      new Shader(gl.VERTEX_SHADER, require('../../shaders/skybox-vert.glsl')),
+      new Shader(gl.FRAGMENT_SHADER, require('../../shaders/skybox-frag.glsl')),
+    ]);
+    this.skyBoxShader.setGeometryColor(vec4.fromValues(0.0, 0.8, 0.0, 1.0));
   }
 
 
@@ -200,12 +235,36 @@ class OpenGLRenderer {
     this.fadePass.setFadeLevel(l);
   }
 
+  setSkyBoxSunPos(pos: vec3){
+    this.skyBoxShader.setSkyboxSunPos(pos);
+  }
+
+  setSkyBoxLuminance(l: number){
+    this.skyBoxShader.setSkyboxLuminace(l);
+  }
+
+  setSkyBoxTurbidity(t: number){
+    this.skyBoxShader.setSkyboxTurbidity(t);
+  }
+
+  setWaterSunDirection(dir: vec3){
+    this.deferredShader.setWaterSunDirection(dir);
+  }
+
+  setWaterSize(size: number){
+    this.deferredShader.setWaterSize(size);
+  }
+
+  setWaterDistortionScale(scale: number){
+    this.deferredShader.setWaterDistortionScale(scale);
+  }
+
   setClearColor(r: number, g: number, b: number, a: number) {
     gl.clearColor(r, g, b, a);
   }
 
 
-  setSize(width: number, height: number) {
+  setSizeAndInitBuffers(width: number, height: number, water: Water) {
     console.log(width, height);
     this.canvas.width = width;
     this.canvas.height = height;
@@ -216,9 +275,9 @@ class OpenGLRenderer {
     // set Bloom passes size
     this.post32PassesBloom[1].setWidth(width); //horizontal blur pass
     this.post32PassesBloom[2].setHeight(height); //vertical blur pass
-    
 
 
+    // --------------------------------                          
     // --- GBUFFER CREATION START ---
     // refresh the gbuffers
     this.gBuffer = gl.createFramebuffer();
@@ -234,18 +293,19 @@ class OpenGLRenderer {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
       // Attention! 
-      // we only make the gbTargets[0] a RGBA 32bits buffer!
-      if (i == 0) {
+      // we only make the gbTargets[0] gbTargets[1] RGBA 32bits buffer!
+      // if (i <= 1) {
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, gl.drawingBufferWidth, gl.drawingBufferHeight, 0, gl.RGBA, gl.FLOAT, null);
-      }
+      // }
       // the rest gbTargets are RGBA 8 bits!
-      else {
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.drawingBufferWidth, gl.drawingBufferHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-      }
+      // else {
+      //    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.drawingBufferWidth, gl.drawingBufferHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      // }
 
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + i, gl.TEXTURE_2D, this.gbTargets[i], 0);
     }
 
+    // --------------------------------                          
     // depth attachment
     this.depthTexture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, this.depthTexture);
@@ -264,8 +324,8 @@ class OpenGLRenderer {
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
-    // create the framebuffers for post processing
 
+    // create the framebuffers for post processing
     // --------------------------------                          
     // origin buffer and texture from g-buffer
     this.originalBufferFromGBuffer = gl.createFramebuffer()
@@ -286,6 +346,7 @@ class OpenGLRenderer {
       console.error("GL_FRAMEBUFFER_COMPLETE failed, CANNOT use 8 bit FBO\n");
     }
 
+    // --------------------------------                          
     for (let i = 0; i < this.post8Buffers.length; i++) {
       // --------------------------------                          
       // 8 bit buffers have unsigned byte textures of type gl.RGBA8
@@ -308,7 +369,6 @@ class OpenGLRenderer {
       }
 
       // --------------------------------                                
-      // Post Process Pipeline 1
       // 32 bit buffers have float textures of type gl.RGBA32F
       this.post32Buffers[i] = gl.createFramebuffer()
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[i]);
@@ -327,27 +387,30 @@ class OpenGLRenderer {
       if (FBOstatus != gl.FRAMEBUFFER_COMPLETE) {
         console.error("GL_FRAMEBUFFER_COMPLETE failed, CANNOT use 8 bit FBO\n");
       }
+    }
 
-      // --------------------------------                                
-      // Post Process Pipeline 2
-      // 32 bit buffers have float textures of type gl.RGBA32F
-      this.post32BuffersTwo[i] = gl.createFramebuffer()
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32BuffersTwo[i]);
-      gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
 
-      this.post32TargetsTwo[i] = gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, this.post32TargetsTwo[i]);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, gl.drawingBufferWidth, gl.drawingBufferHeight, 0, gl.RGBA, gl.FLOAT, null);
-      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.post32TargetsTwo[i], 0);
+    // Water reflection texutre
+    // create buffer related stuff and bind
+    water.reflectRTTFramebuffer = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, water.reflectRTTFramebuffer);
+    gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
+    
+    water.reflectionTexture = gl.createTexture(); // this is the reflection RTT
+    gl.bindTexture(gl.TEXTURE_2D, water.reflectionTexture);
+    // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); // wrap to edge
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); // wrap to edge
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, water.reflectionTextureSize[0], water.reflectionTextureSize[1], 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+    // gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, water.reflectionTextureSize[0], water.reflectionTextureSize[1], 0, gl.RGBA, gl.FLOAT, null);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, water.reflectionTexture, 0);
 
-      FBOstatus = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
-      if (FBOstatus != gl.FRAMEBUFFER_COMPLETE) {
-        console.error("GL_FRAMEBUFFER_COMPLETE failed, CANNOT use 8 bit FBO\n");
-      }
+    FBOstatus = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    if (FBOstatus != gl.FRAMEBUFFER_COMPLETE) {
+      console.error("GL_FRAMEBUFFER_COMPLETE failed, CANNOT use 8 bit FBO\n");
     }
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -360,7 +423,6 @@ class OpenGLRenderer {
     for (let pass of this.post8Passes) pass.setTime(currentTime);
     for (let pass of this.post32Passes) pass.setTime(currentTime);
     
-
     this.currentTime = currentTime;
   }
 
@@ -377,20 +439,17 @@ class OpenGLRenderer {
   }
 
 
-  renderToGBuffer(camera: Camera, gbProg: ShaderProgram, drawables: Array<Drawable>) {
+  renderToGBuffer(camera: Camera, gbProg: ShaderProgram, drawables: Array<Drawable>, water: Water) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.gBuffer);
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     gl.enable(gl.DEPTH_TEST);
 
-    // let model = mat4.create();
     let viewProj = mat4.create();
     let view = camera.viewMatrix;
     let proj = camera.projectionMatrix;
-    let color = vec4.fromValues(0.5, 0.5, 0.5, 1);
+    let color = vec4.fromValues(0.2, 0.2, 0.2, 1);
 
-    // mat4.identity(model);
     mat4.multiply(viewProj, camera.projectionMatrix, camera.viewMatrix);
-    // gbProg.setModelMatrix(model);
     gbProg.setViewProjMatrix(viewProj);
     gbProg.setGeometryColor(color);
     gbProg.setViewMatrix(view);
@@ -398,6 +457,13 @@ class OpenGLRenderer {
 
     gbProg.setTime(this.currentTime);
     
+    gbProg.setDeferredMaterialType(0.0); // Defer material and later deferred shading method 
+
+    // shadow map view project matrix
+    if(this.lightViewProjMatrix != null){
+      gbProg.setLightViewProjMatrix(this.lightViewProjMatrix);
+    }
+
     let i = 0 // control which drawable use textures and which use uniform color
     for (let drawable of drawables) {
       if(i <= 1){
@@ -411,22 +477,81 @@ class OpenGLRenderer {
       i++;
     }
 
+    // save water layer basic info
+    gbProg.setDeferredMaterialType(1.0);
+    gbProg.setModelMatrix(water.square.model);
+
+    // -----------------------------------------------------
+    // create mirrored camera stuff
+    // water.reflectedView is set here
+    water.setReflectedView(camera);
+  
+    proj = camera.projectionMatrix;
+
+    let reflectViewProj = mat4.create();
+    mat4.multiply(reflectViewProj, proj, water.reflectedView);
+
+    // -----------------------------------------------------
+
+    gbProg.setWorldReflectionViewProjection(reflectViewProj);
+    gbProg.draw(water.square)
+
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
 
-  renderFromGBuffer(camera: Camera, controls: any) {
-    // gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[0]);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.originalBufferFromGBuffer);
-    
+
+
+  renderSkyBox(camera: Camera){
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[0]);
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     gl.disable(gl.DEPTH_TEST);
     gl.enable(gl.BLEND);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    
+    let view = camera.viewMatrix;
+    let proj = camera.projectionMatrix;
+
+    // render sky box
+    this.skyBoxShader.setViewMatrix(view);
+    this.skyBoxShader.setProjMatrix(proj);
+    this.skyBoxShader.setModelMatrix(SkyBox.model);
+    this.skyBoxShader.draw(SkyBox);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+
+  renderFromGBuffer(camera: Camera, water: Water, postProcessType: number, controls: any) {
+    // if no need to post-process
+    if(postProcessType == -1){
+      if(this.camMode == CAMERA_MODE.INTERACTIVE_MODE){
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      }
+      // If it's in demo camera mode, we need further fade in/out post-process
+      else{
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.post8Buffers[0]);
+      }
+    }
+    // if need post-process
+    else{
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.originalBufferFromGBuffer);
+    }
+
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    gl.disable(gl.DEPTH_TEST);
+    gl.enable(gl.BLEND);
 
     let view = camera.viewMatrix;
     let proj = camera.projectionMatrix;
+
+
+    // render from gbuffer
     this.deferredShader.setViewMatrix(view);
     this.deferredShader.setProjMatrix(proj);
+
     this.deferredShader.setCameraPos(vec4.fromValues(camera.controls.eye[0], camera.controls.eye[1], camera.controls.eye[2], 1.0));
     this.deferredShader.setRoughness(controls.Roughness);
     this.deferredShader.setShininess(controls.Shininess);
@@ -439,12 +564,48 @@ class OpenGLRenderer {
     this.deferredShader.setFogDensity(controls.FogDensity); 
     this.deferredShader.setCloudSize(controls.CloudStrength); 
     this.deferredShader.setCloudEdge(controls.CloudLight); 
-    for (let i = 0; i < this.gbTargets.length; i ++) {
+
+
+    let gbTargetsLen = this.gbTargets.length;
+    
+    // g-buffer textures
+    for (let i = 0; i < gbTargetsLen; i ++) {
       gl.activeTexture(gl.TEXTURE0 + i);
       gl.bindTexture(gl.TEXTURE_2D, this.gbTargets[i]);
     }
 
+    // shadow map texture
+    if(this.shadowDepthTexture !== null){
+      gl.activeTexture(gl.TEXTURE0 + gbTargetsLen);
+      gl.bindTexture(gl.TEXTURE_2D, this.shadowDepthTexture);
+      this.deferredShader.setShadowTexture(gbTargetsLen);
+    }
+
+    // skybox texture
+    gl.activeTexture(gl.TEXTURE0 + gbTargetsLen + 1);
+    gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[0]);
+    this.deferredShader.setBgTexture(gbTargetsLen + 1);
+    
+    if(water !== null){
+      if(this.camMode == CAMERA_MODE.INTERACTIVE_MODE){
+        this.deferredShader.setWaterEyePos(camera.controls.eye);
+      }
+      else{
+        this.deferredShader.setWaterEyePos(camera.demoCamPos);
+      }
+
+      // water reflection texture
+      gl.activeTexture(gl.TEXTURE0 + gbTargetsLen + 2);
+      gl.bindTexture(gl.TEXTURE_2D, water.reflectionTexture);
+      this.deferredShader.setWaterReflectionTexture(gbTargetsLen + 2);
+
+      // water normal texture
+      this.deferredShader.setupTexUnits(["u_waterNoramlTexture"]);
+      this.deferredShader.bindTexToUnit("u_waterNoramlTexture", water.normal_tex, gbTargetsLen + 3);
+    }
+
     this.deferredShader.draw();
+
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
 
@@ -476,20 +637,35 @@ class OpenGLRenderer {
       default:
         break;
     }
-    let i = 0;
 
+    let i = 0;
     // --------------------------------                          
     // Single post process pipeline 
     // for Default, Bloom, God ray post porcesses
     for (i = 0; i < thisPost32Passes.length; i++){
-      // Pingpong framebuffers for each pass.
-      // In other words, repeatedly flip between storing the output of the
-      // current post-process pass in post32Buffers[1] and post32Buffers[0].
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[(i + 1) % 2]);
+
+      // If this is the last post process pass
+      if(i == thisPost32Passes.length - 1){
+        if(this.camMode == CAMERA_MODE.INTERACTIVE_MODE){
+          gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        }
+        // If it's in demo camera mode, we need further fade in/out post-process
+        else{
+          gl.bindFramebuffer(gl.FRAMEBUFFER, this.post8Buffers[0]);
+        }
+      }
+      else{
+        // Pingpong framebuffers for each pass.
+        // In other words, repeatedly flip between storing the output of the
+        // current post-process pass in post32Buffers[1] and post32Buffers[0].
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[(i + 1) % 2]);
+      }
+
 
       gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
       gl.disable(gl.DEPTH_TEST);
       gl.enable(gl.BLEND);
+
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
       // Recall that each frame buffer is associated with a texture that stores
@@ -520,44 +696,41 @@ class OpenGLRenderer {
         gl.bindTexture(gl.TEXTURE_2D, this.originalTargetFromGBuffer);                
       }
 
-
-
       thisPost32Passes[i].draw();
 
       // bind default frame buffer
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
     
+    // ******************* DELETE ME ! **************************
+    // // --------------------------------                          
+    // // apply tonemapping
+    // // TODO: if you significantly change your framework, ensure this doesn't cause bugs!
+    // // render to the first 8 bit buffer if there is more post, else default buffer
 
+    // if(this.camMode == CAMERA_MODE.INTERACTIVE_MODE){
+    //   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    // }
+    // else{
+    //   gl.bindFramebuffer(gl.FRAMEBUFFER, this.post8Buffers[0]);
+    // }
 
-    // --------------------------------                          
-    // apply tonemapping
-    // TODO: if you significantly change your framework, ensure this doesn't cause bugs!
-    // render to the first 8 bit buffer if there is more post, else default buffer
+    // gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
 
-    if(this.camMode == CAMERA_MODE.INTERACTIVE_MODE){
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    }
-    else{
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this.post8Buffers[0]);
-    }
+    // gl.disable(gl.DEPTH_TEST);
+    // gl.enable(gl.BLEND);
+    // gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-
-    gl.disable(gl.DEPTH_TEST);
-    gl.enable(gl.BLEND);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-    gl.activeTexture(gl.TEXTURE0);
-    // bound texture is the last one processed before
-    if(i == 0){
-      gl.bindTexture(gl.TEXTURE_2D, this.originalTargetFromGBuffer);      
-    }
-    else{
-      gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[Math.max(0, i) % 2]);      
-    }
-
-    this.tonemapPass.draw();
+    // gl.activeTexture(gl.TEXTURE0);
+    // // bound texture is the last one processed before
+    // if(i == 0){
+    //   gl.bindTexture(gl.TEXTURE_2D, this.originalTargetFromGBuffer);      
+    // }
+    // else{
+    //   gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[Math.max(0, i) % 2]);      
+    // }
+    // this.tonemapPass.draw();
+    // **********************************************************
 
 
     // --------------------------------
@@ -578,10 +751,9 @@ class OpenGLRenderer {
   
       this.fadePass.draw();
     }
-
   }
 
-  //******************* DELETE ME ! **************************
+  // ******************* DELETE ME ! **************************
   // // TODO: pass any info you need as args
   // renderPostProcessLDR(postProcessType: number) {
 
@@ -619,7 +791,7 @@ class OpenGLRenderer {
   //     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   //   }
   // }
-  //**********************************************************
+  // **********************************************************
 
   
   // render an occlusion texture for God ray post processing
@@ -629,20 +801,19 @@ class OpenGLRenderer {
     gl.enable(gl.DEPTH_TEST);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    let model = mat4.create();
     let viewProj = mat4.create();
-
-    mat4.identity(model);
 
     mat4.multiply(viewProj, camera.projectionMatrix, camera.viewMatrix);
     this.occlusionShader.setViewProjMatrix(viewProj);
 
 
-    // to draw an occlusion texture, 
+    // To draw an occlusion texture, 
     // this color is important
     // set light color as white
     this.occlusionShader.setGeometryColor(vec4.fromValues(1.0, 1.0, 1.0, 1.0));
-    
+
+    let model = mat4.create();
+    mat4.identity(model);
     this.occlusionShader.setModelMatrix(model); 
 
     this.occlusionShader.draw(lightSphere);    
@@ -658,8 +829,6 @@ class OpenGLRenderer {
     vec4.scale(lightPos, lightPos, 0.5);
     this.post32PassesGodRay[0].setGodRayScreenSpaceLightPos(vec2.fromValues(lightPos[0], lightPos[1]));
 
-    // set model matrix back to identity matrix to draw noraml scene
-    // mat4.identity(model); 
 
     // this is occuluded geometry color
     // we directly draw it black
@@ -672,6 +841,134 @@ class OpenGLRenderer {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
 
+
+  // render shadow map
+  renderShadow(lightPos: vec3, aspectRatio: number, drawables: Array<Drawable>){
+
+    // create shadow map buffer related stuff and bind
+    var shadowFramebuffer = gl.createFramebuffer()
+    gl.bindFramebuffer(gl.FRAMEBUFFER, shadowFramebuffer);
+    gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
+
+    this.shadowDepthTexture = gl.createTexture() // this is the final shadow map render
+    gl.bindTexture(gl.TEXTURE_2D, this.shadowDepthTexture)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); // wrap to edge
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); // wrap to edge
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, shadowDepthTextureSize, shadowDepthTextureSize, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.shadowDepthTexture, 0);
+    
+
+    let FBOstatus = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    if (FBOstatus != gl.FRAMEBUFFER_COMPLETE) {
+      console.error("GL_FRAMEBUFFER_COMPLETE failed, CANNOT use 8 bit FBO\n");
+    }
+
+
+    gl.bindTexture(gl.TEXTURE_2D, null)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    
+
+    // create light "camera"
+    let lightProjectionMatrix = mat4.create();
+    let orthoCamWidth = 50.0; // TODO : adjust this value to change shadow size
+    let near = 0.1;
+    let far = 5000.0;
+    mat4.ortho(lightProjectionMatrix, -orthoCamWidth, orthoCamWidth , -orthoCamWidth / aspectRatio, orthoCamWidth / aspectRatio, near, far);
+
+    let lightViewMatrix = mat4.create();
+    mat4.lookAt(lightViewMatrix, vec3.fromValues(lightPos[0], lightPos[1], lightPos[2]), vec3.fromValues(0, 0, 0), vec3.fromValues(0, 1, 0));
+
+    this.lightViewProjMatrix = mat4.create();
+    mat4.multiply(this.lightViewProjMatrix, lightProjectionMatrix, lightViewMatrix);  
+    
+    // set sun view projection matrix
+    this.shadowShader.setLightViewProjMatrix(this.lightViewProjMatrix);
+    
+
+    // draw shadows to framebuffer
+    gl.bindFramebuffer(gl.FRAMEBUFFER, shadowFramebuffer);
+
+    gl.viewport(0, 0, shadowDepthTextureSize, shadowDepthTextureSize)
+    gl.clearColor(0, 0, 0, 1)
+    gl.clearDepth(1.0)
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+    
+    for (let drawable of drawables) {
+      // set up model matrix
+      this.shadowShader.setModelMatrix(drawable.model);
+      this.shadowShader.draw(drawable);
+    }
+
+    console.log("Shadow Draw is called!");
+    
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+
+
+  render(camera: Camera, prog: ShaderProgram, drawables: Array<Drawable>) {
+    
+    let viewProj = mat4.create();
+
+    let model = mat4.create();
+    mat4.identity(model);
+
+    mat4.multiply(viewProj, camera.projectionMatrix, camera.viewMatrix);
+    prog.setModelMatrix(model);
+    prog.setViewProjMatrix(viewProj);
+
+
+    if(this.shadowDepthTexture != null){
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.shadowDepthTexture);
+      prog.setShadowTexture(0);
+    }
+
+    if(this.lightViewProjMatrix != null){
+      prog.setLightViewProjMatrix(this.lightViewProjMatrix);
+    }
+
+    for (let drawable of drawables) {
+      prog.draw(drawable);
+    }
+  }
+
+
+  renderWaterReflectionTexture(water: Water, camera: Camera, drawables: Array<Drawable>, tex0: Texture){
+
+    // draw refection of water surface to framebuffer
+    gl.bindFramebuffer(gl.FRAMEBUFFER, water.reflectRTTFramebuffer);
+    gl.viewport(0, 0, water.reflectionTextureSize[0],  water.reflectionTextureSize[1])
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+
+    let proj = camera.projectionMatrix;
+
+    // render sky box from mirrored camera
+    if(SkyBox !== null){
+      this.skyBoxShader.setViewMatrix(water.reflectedView); // water.refectedView is set in renderToGubuffer
+      this.skyBoxShader.setProjMatrix(proj);
+      this.skyBoxShader.setModelMatrix(SkyBox.model);
+      this.skyBoxShader.draw(SkyBox);
+    }
+
+    // TODO : further refine this lambertShader!
+    // set uniforms for shader  
+    this.lambertShader.setupTexUnits(["tex_Color"]);
+    this.lambertShader.bindTexToUnit("tex_Color", tex0, 0);
+    this.lambertShader.setViewMatrix(water.reflectedView); // water.refectedView is set in renderToGubuffer   
+    this.lambertShader.setProjMatrix(proj);
+    this.lambertShader.setGeometryColor(vec4.fromValues(0.2, 0.2, 0.2, 1.0));
+
+    for (let drawable of drawables) {
+      // set up model matrix
+      this.lambertShader.setModelMatrix(drawable.model);
+      this.lambertShader.draw(drawable);
+    }
+    
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
 };
 
 export default OpenGLRenderer;

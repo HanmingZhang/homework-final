@@ -27,7 +27,7 @@ class Camera {
   fovy: number = 45 * 3.1415962 / 180.0;
   aspectRatio: number = 1;
   near: number = 0.1;
-  far: number = 1000;
+  far: number = 30000.0;
   position: vec3 = vec3.create();
   direction: vec3 = vec3.create();
   target: vec3 = vec3.create();
@@ -136,7 +136,7 @@ class Camera {
       }
 
       // final fade in/out, we should back to general interactive camera
-      if(this.demoCamTime >= this.demoCamTotalLength - 0.5 * VERY_FINAL_FADE_LENGTH){
+      if(camStage == -1 || this.demoCamTime >= this.demoCamTotalLength - 0.5 * VERY_FINAL_FADE_LENGTH){
         this.controls.tick();
         vec3.add(this.target, this.position, this.direction);
         mat4.lookAt(this.viewMatrix, this.controls.eye, this.controls.center, this.controls.up);
@@ -166,6 +166,7 @@ class Camera {
   }
 
   endDemoCam(){
+    // swich back to default interactive camera mode
     this.camMode = CAMERA_MODE.INTERACTIVE_MODE;
   }
 

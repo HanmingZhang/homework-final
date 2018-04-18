@@ -15,7 +15,6 @@ class Square extends Drawable {
     this.center = vec4.fromValues(center[0], center[1], center[2], 1);
 
     this.model = mat4.clone(model);
-    console.log(this.model);
   }
 
   create() {
