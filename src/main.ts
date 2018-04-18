@@ -1,4 +1,4 @@
-import {vec3, vec4, mat4} from 'gl-matrix';
+import {vec2, vec3, vec4, mat4} from 'gl-matrix';
 import * as Stats from 'stats-js';
 import * as DAT from 'dat-gui';
 import Square from './geometry/Square';
@@ -11,8 +11,11 @@ import {readTextFile} from './globals';
 import ShaderProgram, {Shader} from './rendering/gl/ShaderProgram';
 import Texture from './rendering/gl/Texture';
 import { GUI } from 'dat-gui';
+import Water from './material/Water';
 
 
+// ----------------------------------------------------------------
+// Demo Camera stuff
 export enum CAMERA_MODE {
   INTERACTIVE_MODE,
   DEMO_MODE,
@@ -25,7 +28,7 @@ export interface CAMERA_SEQUENCE{
   endPos: vec3;
 };
 
-const camera = new Camera(vec3.fromValues(0, 20, 80), vec3.fromValues(0, 25, 0));
+const camera = new Camera(vec3.fromValues(0, 45, 120), vec3.fromValues(0, 25, 0));
 const cameraDemoModeLength = 66000; // milliseconds (66 seconds)
 var renderer: OpenGLRenderer;
 
@@ -48,11 +51,12 @@ function printCamInfo(){
   console.log(camera.controls.center);
 }
 
+// ----------------------------------------------------------------
+// controls object is for GUI
 // Define an object with application parameters and button callbacks
 const controls = {
-  // Extra credit: Add interactivity
-  BackgroundType: 'Background1',
-  PostProcessingType: 'GodRay',
+  // Post-process type
+  PostProcessingType: 'Null',
 
   // Bloom
   BloomOriWeight: 0.8,
@@ -67,27 +71,49 @@ const controls = {
   GodRayOriWeight: 0.8,
   GodRayHighLightWeight: 1.7,
 
-  // Cartoon
-  EdgeThickness: 1.3,
-  KuwaharaRadius: 5.0,
-
-
   // Fade Effect
   DemoMode: startDemoCam, 
 
   // Print camera info
   PrintCamInfo: printCamInfo,
+
+  // Triggle debug shadow map
+  debugShadow: false,
+
+  // Sky box paras
+  distance: 400,
+  inclination: 0.49,
+  azimuth: 0.205,
+  luminance: 1.0,
+  turbidity: 6.0,
+
+  // Water
+  Size: 0.8,
+  DistortionScale: 3.7,
 };
 
-let square: Square;
-let sphere: Icosphere;
+
+// ----------------------------------------------------------------
+// Geometry used in our scene
+let square: Square; // For ground
+let quad: Square;   // For shadow map debug scene
+let sphere: Icosphere; // For God ray sphere
+let water: Water; 
 
 
-// TODO: replace with your scene's stuff
+// TODO :
+// Adjust this sun position for a better scene effect
 
+// this position shoule be consistent with 
+// 1. directional light direction in deferred-render.glsl
+// 2. sun position in shadow map
+// 3. God ray light source position
+const sun_pos = vec3.fromValues(0, 50.0, -50.0);
+
+
+// TODO: add scene's stuff here
 let obj0: string;
 let mesh0: Mesh;
-
 let tex0: Texture;
 
 var timer = {
@@ -102,7 +128,6 @@ var timer = {
   },
 }
 
-
 function loadOBJText() {
   obj0 = readTextFile('resources/obj/wahoo.obj');
 }
@@ -112,29 +137,40 @@ function loadScene() {
   square && square.destroy();
   mesh0 && mesh0.destroy();
   sphere && sphere.destroy();
+  quad && quad.destroy();
 
   let modelMatrix = mat4.create();
 
+  // Plane to cast shadow on
   mat4.identity(modelMatrix);
-  // console.log(modelMatrix);
-  mat4.scale(modelMatrix, modelMatrix, vec3.fromValues(50.0, 1.0, 50.0));  
+  mat4.scale(modelMatrix, modelMatrix, vec3.fromValues(12.0, 1.0, 16.0));  
   mat4.rotateX(modelMatrix, modelMatrix, -0.5 * 3.1415926);
-  mat4.translate(modelMatrix, modelMatrix, vec3.fromValues(0.0, 0.0, -2.0));
+  mat4.translate(modelMatrix, modelMatrix, vec3.fromValues(0.0, -0.5, -0.5));
   square = new Square(vec3.fromValues(0, 0, 0), modelMatrix);
   square.create();
 
+  // Shadow map debug quad
+  mat4.identity(modelMatrix);
+  quad = new Square(vec3.fromValues(0, 0, 0), modelMatrix);
+  quad.create();
+
+  // Wahoo!
   mat4.identity(modelMatrix);
   mesh0 = new Mesh(obj0, vec3.fromValues(0, 0, 0), modelMatrix);
   mesh0.create();
 
+  // God ray sphere(it should be consistent with the sun in the scene)
   mat4.identity(modelMatrix);
-  sphere = new Icosphere(vec3.fromValues(0.0, 50.0, -50.0), 10.0, 6.0, modelMatrix);
+  sphere = new Icosphere(sun_pos, 10.0, 6.0, modelMatrix);
   sphere.create();
 
+  water = new Water(vec2.fromValues(10000, 10000), vec3.fromValues(0, 0.0, -1.0), 'resources/textures/waternormals.jpg');
+
+  // Wahoo obj abledo texture
   tex0 = new Texture('resources/textures/wahoo.bmp');
 }
 
-
+// ----------------------------------------------------------------
 function main() {
   // Initial display for framerate
   const stats = Stats();
@@ -157,6 +193,7 @@ function main() {
   // Initial call to load scene
   loadScene();
 
+  // -------------------------------------------------------------------
   renderer = new OpenGLRenderer(canvas);
   renderer.setClearColor(0, 0, 0, 1);
   gl.enable(gl.DEPTH_TEST);
@@ -167,10 +204,8 @@ function main() {
     new Shader(gl.VERTEX_SHADER, require('./shaders/standard-vert.glsl')),
     new Shader(gl.FRAGMENT_SHADER, require('./shaders/standard-frag.glsl')),
     ]);
-
   standardDeferred.setupTexUnits(["tex_Color"]);
-  standardDeferred.setGeometryColor(vec4.fromValues(0.2, 0.2, 0.2, 1.0));
-
+  
 
   // -------------------------------------------------------------------
   // Add controls to the gui
@@ -254,12 +289,59 @@ function main() {
   f2.close();  
 
 
+  // Sky box paras
+  var skyBox_SunPosition = vec3.create();
+  function setSkyboxSun() {
+    var theta = Math.PI * ( controls.inclination - 0.5 );
+    var phi = 2 * Math.PI * ( controls.azimuth - 0.5 );
+
+    skyBox_SunPosition[0] = controls.distance * Math.cos( phi );
+    skyBox_SunPosition[1] = controls.distance * Math.sin( phi ) * Math.sin( theta );
+    skyBox_SunPosition[2] = controls.distance * Math.sin( phi ) * Math.cos( theta );
+
+    renderer.setSkyBoxSunPos(skyBox_SunPosition);
+
+    // update water material sun direction here
+    let tmpDir = vec3.create();
+    vec3.normalize(tmpDir, skyBox_SunPosition)
+    renderer.setWaterSunDirection(tmpDir);
+  }
+  setSkyboxSun();
+  function setSkyBoxLuminance(){
+    renderer.setSkyBoxLuminance(controls.luminance);
+  }
+  setSkyBoxLuminance();
+  function setSkyBoxTurbidity(){
+    renderer.setSkyBoxTurbidity(controls.turbidity);
+  }
+  setSkyBoxTurbidity();
+
+  var f3 = gui.addFolder('Sky box paras');
+  f3.add(controls, 'inclination', 0, 0.5).step(0.001).onChange(setSkyboxSun);
+  f3.add(controls, 'azimuth', 0, 1).step(0.001).onChange(setSkyboxSun);
+  f3.add(controls, "luminance", 0, 1.1).step(0.1).onChange(setSkyBoxLuminance);
+  f3.add(controls, "turbidity", 0, 25.0).step(0.5).onChange(setSkyBoxTurbidity);
+  f3.open();
 
 
+  // Water paras
+  function setWaterSize(){
+    renderer.setWaterSize(controls.Size);
+  }
+  setWaterSize();
+  function setWaterDistortionScale(){
+    renderer.setWaterDistortionScale(controls.DistortionScale);
+  }
+  setWaterDistortionScale();
+
+  var f4 = gui.addFolder('Water paras');
+  f4.add(controls, 'Size', 0.1, 10.0).step(0.1).onChange(setWaterSize);
+  f4.add(controls, 'DistortionScale', 0.1, 8).step(0.1).onChange(setWaterDistortionScale);
+  f4.open();
 
   // -------------------------------------------------------------------
-  // TODO : Add camera fade effect here!
-  camera.addDemoCamFadeEffect(20.0, 30.0) // 10 - 16s
+  // TODO : Add camera fade effect keys here!
+  camera.addDemoCamFadeEffect(20.0, 30.0) // 20 - 30s
 
   // TODO : Add key frame camera info
   camera.addDemoCamPos({startTime: 2.0, endTime: 25.0, startPos: vec3.fromValues(80.0, 80.0, 100.0), endPos: vec3.fromValues(80.0, 100.0, 80.0)});
@@ -271,7 +353,20 @@ function main() {
   camera.addDemoCamPos({startTime: 45.0, endTime: 63.0, startPos: vec3.fromValues(-30, 15.0, 25.0), endPos: vec3.fromValues(10, 9.0, 20.0)});
   camera.addDemoCamTarget({startTime: 45.0, endTime: 63.0, startPos: vec3.fromValues(0, 0, 0), endPos: vec3.fromValues(0, 0, 0)});
 
-  gui.add(controls, 'DemoMode');
+  gui.add(controls, 'DemoMode'); // click to turn on demo camera mode
+
+
+  
+  // -------------------------------------------------------------------
+  // shadow map debug quad 
+  const quadShader = new ShaderProgram([
+    new Shader(gl.VERTEX_SHADER, require('./shaders/quad-vert.glsl')),
+    new Shader(gl.FRAGMENT_SHADER, require('./shaders/quad-frag.glsl')),
+  ]);
+  gui.add(controls, 'debugShadow');
+
+  // Bake shadow map 
+  renderer.renderShadow(sun_pos, window.innerWidth / window.innerHeight, [mesh0]);
 
 
   // -------------------------------------------------------------------
@@ -287,51 +382,69 @@ function main() {
       camera.updateDemoCamTime(timer.deltaTime);
     }
 
-
+    // Wahoo abledo texture
     standardDeferred.bindTexToUnit("tex_Color", tex0, 0);
 
     renderer.clear();
     renderer.clearGB();
 
-    // TODO: pass any arguments you may need for shader passes
-
-    // If it's God ray post process, we need to add an extra occlusion pass
-    if(postProcessType == 2){
-      // renderer.renderOcculusion(camera, sphere, []);
-      renderer.renderOcculusion(camera, sphere, [mesh0, square]);      
+    // debug shadow map
+    if(controls.debugShadow){
+      // Shadow map debug view
+      renderer.render(camera, quadShader, [
+          quad,
+      ]);
     }
+    else{
+      // TODO: pass any arguments you may need for shader passes
 
-    // forward render mesh info into gbuffers
-    renderer.renderToGBuffer(camera, standardDeferred, [mesh0, square]);      
-    // render from gbuffers into 32-bit color buffer
-    renderer.renderFromGBuffer(camera);
+      // forward render mesh info into gbuffers
+      // renderer.renderToGBuffer(camera, standardDeferred, [mesh0, square], water);     
+      renderer.renderToGBuffer(camera, standardDeferred, [mesh0], water);
+       
+      // sky box
+      renderer.renderSkyBox(camera);
 
+      // water layer
+      renderer.renderWaterReflectionTexture(water, camera, [mesh0], tex0);
 
-    if(camera.camMode == CAMERA_MODE.DEMO_MODE){
-      // update fade level if camera is under demo mode
-      renderer.setFadeLevel(camera.fadeLevel);
+      // render from gbuffers into 32-bit color buffer
+      renderer.renderFromGBuffer(camera, water, postProcessType);
+
+      // If it's God ray post process, we need to add an extra occlusion pass
+      if(postProcessType == 2){
+        // renderer.renderOcculusion(camera, sphere, [mesh0, square]);  
+        renderer.renderOcculusion(camera, sphere, [mesh0]);      
+      }
+
+      if(camera.camMode == CAMERA_MODE.DEMO_MODE){
+        // update fade level if camera is under demo mode
+        renderer.setFadeLevel(camera.fadeLevel);
+      }
+
+      if(postProcessType != -1 || camera.camMode == CAMERA_MODE.DEMO_MODE){
+        // 1. apply 32-bit post 
+        // 2. tonemap from 32-bit color to 8-bit color
+        // 3. cinematic camera fade transition effect if necessary
+        renderer.renderPostProcessHDR(postProcessType);
+      }
+
+      // ******************* DELETE ME ! **************************
+      // // apply 8-bit post and draw
+      // renderer.renderPostProcessLDR(postProcessType);
+      // **********************************************************
     }
-
-    // apply 32-bit post and tonemap from 32-bit color to 8-bit color
-    renderer.renderPostProcessHDR(postProcessType);
-
-
-    //******************* DELETE ME ! **************************
-    // // apply 8-bit post and draw
-    // renderer.renderPostProcessLDR(postProcessType);
-    //**********************************************************
-
     stats.end();
     requestAnimationFrame(tick);
   }
 
   window.addEventListener('resize', function() {
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSizeAndInitBuffers(window.innerWidth, window.innerHeight, water);
     camera.setAspectRatio(window.innerWidth / window.innerHeight);
     camera.updateProjectionMatrix();
   }, false);
 
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSizeAndInitBuffers(window.innerWidth, window.innerHeight, water);
   camera.setAspectRatio(window.innerWidth / window.innerHeight);
   camera.updateProjectionMatrix();
 

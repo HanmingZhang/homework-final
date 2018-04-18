@@ -54,6 +54,25 @@ class ShaderProgram {
 
   unifTexUnits: Map<string, WebGLUniformLocation>;
 
+  unifLightViewProj: WebGLUniformLocation;
+  unifShadowTexture: WebGLUniformLocation;
+  
+  unifBgTexture: WebGLUniformLocation;
+
+  unifSkyboxSunPos: WebGLUniformLocation;
+  unifSkyboxLuminance: WebGLUniformLocation;
+  unifSkyboxTurbidity: WebGLUniformLocation;
+
+  unifDeferredMaterialType: WebGLUniformLocation;
+
+  unifWorldReflectionViewProjection: WebGLUniformLocation;
+
+  unifWaterReflectionTexture: WebGLUniformLocation;
+  unifWaterEyePos: WebGLUniformLocation;
+  unifWaterSunDirection: WebGLUniformLocation;
+  unifWaterSize: WebGLUniformLocation;
+  unifWaterDistortionScale: WebGLUniformLocation;
+
   constructor(shaders: Array<Shader>) {
     this.prog = gl.createProgram();
 
@@ -89,10 +108,28 @@ class ShaderProgram {
     this.unifGodrayExposure = gl.getUniformLocation(this.prog, "u_Exposure");
     this.unifGodrayNumSamples = gl.getUniformLocation(this.prog, "u_NumSamples");
 
-
     this.unifEnableTexture = gl.getUniformLocation(this.prog, "u_EnableTexture");
 
     this.unifFadeLevel = gl.getUniformLocation(this.prog, "u_fadeLevel");
+
+    this.unifLightViewProj = gl.getUniformLocation(this.prog, "u_lightViewProj");
+    this.unifShadowTexture = gl.getUniformLocation(this.prog, "u_shadowTexture");
+    
+    this.unifBgTexture = gl.getUniformLocation(this.prog, "u_BgTexutre");
+    
+    this.unifSkyboxSunPos = gl.getUniformLocation(this.prog, "u_SunPosition");
+    this.unifSkyboxLuminance = gl.getUniformLocation(this.prog, "u_Luminance");
+    this.unifSkyboxTurbidity = gl.getUniformLocation(this.prog, "u_Turbidity");
+    
+    this.unifDeferredMaterialType = gl.getUniformLocation(this.prog, "u_MaterialType");
+
+    this.unifWorldReflectionViewProjection = gl.getUniformLocation(this.prog, "u_worldReflectionViewProjection");
+
+    this.unifWaterReflectionTexture = gl.getUniformLocation(this.prog, "u_waterReflectionTexutre");
+    this.unifWaterEyePos = gl.getUniformLocation(this.prog, "u_Eye");
+    this.unifWaterSunDirection = gl.getUniformLocation(this.prog, "u_SunDirection");
+    this.unifWaterSize = gl.getUniformLocation(this.prog, "u_waterSize");
+    this.unifWaterDistortionScale = gl.getUniformLocation(this.prog, "u_waterDistortionScale");
 
     this.unifTexUnits = new Map<string, WebGLUniformLocation>();
   }
@@ -249,7 +286,6 @@ class ShaderProgram {
     }
   }
 
-
   setEnableTexutre(t: boolean){
     this.use();
     if(this.unifEnableTexture !== -1){
@@ -257,13 +293,105 @@ class ShaderProgram {
     }
   }
 
-
   setFadeLevel(l: number){
     this.use();
     if(this.unifFadeLevel !== -1){
       gl.uniform1f(this.unifFadeLevel, l);
     }
   }
+
+  setLightViewProjMatrix(lvp: mat4){
+    this.use();
+    if (this.unifLightViewProj !== -1) {
+      gl.uniformMatrix4fv(this.unifLightViewProj, false, lvp);
+    }
+  }
+
+  setShadowTexture(i: number) {
+    this.use();
+    if (this.unifShadowTexture !== -1) {
+      gl.uniform1i(this.unifShadowTexture, i);
+    }
+  }
+
+  setBgTexture(i: number) {
+    this.use();
+    if (this.unifBgTexture !== -1) {
+      gl.uniform1i(this.unifBgTexture, i);
+    }
+  }
+
+
+  setSkyboxSunPos(pos: vec3) {
+    this.use();
+    if (this.unifSkyboxSunPos !== -1) {
+      gl.uniform3fv(this.unifSkyboxSunPos, pos);
+    }
+  }
+
+  setSkyboxLuminace(l: number){
+    this.use();
+    if(this.unifSkyboxLuminance !== -1){
+      gl.uniform1f(this.unifSkyboxLuminance, l);
+    }
+  }
+
+  setSkyboxTurbidity(t: number){
+    this.use();
+    if(this.unifSkyboxTurbidity !== -1){
+      gl.uniform1f(this.unifSkyboxTurbidity, t);
+    }
+  }
+
+  setDeferredMaterialType(type: number){
+    this.use();
+    if(this.unifDeferredMaterialType !== -1){
+      gl.uniform1f(this.unifDeferredMaterialType, type);
+    }
+  }
+
+  setWorldReflectionViewProjection(wrvp: mat4) {
+    this.use();
+    if (this.unifWorldReflectionViewProjection !== -1) {
+      gl.uniformMatrix4fv(this.unifWorldReflectionViewProjection, false, wrvp);
+    }
+  }
+
+  setWaterReflectionTexture(i: number) {
+    this.use();
+    if (this.unifWaterReflectionTexture !== -1) {
+      gl.uniform1i(this.unifWaterReflectionTexture, i);
+    }
+  }
+
+  setWaterEyePos(eye: vec3){
+    this.use();
+    if(this.unifWaterEyePos !== -1){
+      gl.uniform3fv(this.unifWaterEyePos, eye);
+    }
+  }
+
+  setWaterSunDirection(dir: vec3){
+    this.use();
+    if(this.unifWaterSunDirection !== -1){
+      gl.uniform3fv(this.unifWaterSunDirection, dir);
+    }
+  }
+
+  setWaterSize(size: number){
+    this.use();
+    if(this.unifWaterSize !== -1){
+      gl.uniform1f(this.unifWaterSize, size);
+    }
+  }
+
+  setWaterDistortionScale(scale: number){
+    this.use();
+    if(this.unifWaterDistortionScale !== -1){
+      gl.uniform1f(this.unifWaterDistortionScale, scale);
+    }
+  }
+
 
   draw(d: Drawable) {
     this.use();

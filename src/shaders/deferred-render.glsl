@@ -16,109 +16,201 @@ uniform float u_Time;
 
 uniform float u_Height;
 uniform float u_Width;
+
 uniform mat4 u_View;
 uniform mat4 u_Proj;
 
-// uniform int u_ShadingType;
-// uniform int u_BgType;
+uniform vec3 u_Eye;
+uniform vec3 u_SunDirection;
 
-uniform vec4 u_CamPos;   
+uniform sampler2D u_shadowTexture;
 
+uniform sampler2D u_BgTexutre;
+
+uniform sampler2D u_waterReflectionTexutre;
+uniform sampler2D u_waterNoramlTexture;
+uniform float u_waterSize;
+uniform float u_waterDistortionScale;
+
+const float shadowDepthTextureSize = 1024.0; // This one should be consistent with that in OpenGLRenderer.ts
+
+
+// SHOULD BE CONSISTENT WITH SUN POS in main.ts
 // directional light
-const vec3 directional_lighting_dir = vec3(5.0, 5.0, 5.0); 
-
+const vec3 directional_lighting_dir = vec3(0, 50.0, -50.0); 
 // point light position
-const vec3 point_light_pos = vec3(10.0, 10.0, 10.0);
+const vec3 point_light_pos = vec3(0.0, 50.0, -50.0);
+
+// Water paras
+// const float size = 0.5;
+// const float distortionScale = 3.7;
+
+const vec3  sunColor = vec3(1.0, 1.0, 1.0);
+const vec3  waterColor = vec3(0, 0.1176, 0.0588);
 
 
-
-float random (vec2 uv) {
-    return fract(sin(dot(uv.xy,vec2(12.9898,78.233)))*43758.5453123);
+// decode from shadow map
+float decodeFloat (vec4 color) {
+  const vec4 bitShift = vec4(
+    1.0 / (256.0 * 256.0 * 256.0),
+    1.0 / (256.0 * 256.0),
+    1.0 / 256.0,
+    1
+  );
+  return dot(color, bitShift);
 }
 
-float noise (vec2 uv) {
-    vec2 i = floor(uv);
-    vec2 f = fract(uv);
+vec4 getNoise(vec2 uv) {
+	float timeScalar = 0.5;
 
-    // Four corners in 2D of a tile
-    float a = random(i);
-    float b = random(i + vec2(1.0, 0.0));
-    float c = random(i + vec2(0.0, 1.0));
-    float d = random(i + vec2(1.0, 1.0));
-
-    vec2 u = f * f * (3.0 - 2.0 * f);
-
-    return mix(a, b, u.x) +
-            (c - a)* u.y * (1.0 - u.x) +
-            (d - b) * u.x * u.y;
+    vec2 uv0 = ( uv / 103.0 ) + vec2(timeScalar * u_Time / 17.0, timeScalar * u_Time / 29.0);
+    vec2 uv1 = uv / 107.0-vec2( timeScalar * u_Time / -19.0, timeScalar * u_Time / 31.0 );
+    vec2 uv2 = uv / vec2( 8907.0, 9803.0 ) + vec2( timeScalar * u_Time / 101.0, timeScalar * u_Time / 97.0 );
+    vec2 uv3 = uv / vec2( 1091.0, 1027.0 ) - vec2( timeScalar * u_Time / 109.0, timeScalar * u_Time / -113.0 );
+    vec4 noise = texture( u_waterNoramlTexture, uv0 ) +
+				 texture( u_waterNoramlTexture, uv1 ) +
+				 texture( u_waterNoramlTexture, uv2 ) +
+				 texture( u_waterNoramlTexture, uv3 );
+    return noise * 0.5 - 1.0;
 }
 
-
-float fbm (in vec2 uv) {
-    // Initial values
-    float value = 0.0;
-    float amplitude = .5;
-    float frequency = 0.;
-
-    // Loop of octaves
-    for (int i = 0; i < OCTAVES; i++) {
-        value += amplitude * noise(uv);
-        uv *= 2.;
-        amplitude *= .5;
-    }
-    return value;
+void sunLight(vec3 surfaceNormal, vec3 eyeDirection, float shiny, float spec, float diffuse, inout vec3 diffuseColor, inout vec3 specularColor ) {
+    vec3 reflection = normalize(reflect( -u_SunDirection, surfaceNormal));
+    float direction = max(0.0, dot(eyeDirection, reflection ));
+    specularColor += pow( direction, shiny ) * sunColor * spec;
+    diffuseColor += max( dot( u_SunDirection, surfaceNormal ), 0.0 ) * sunColor * diffuse;
 }
 
 void main() { 
 	// read from GBuffers
-	vec4 gb2 = texture(u_gb2, fs_UV);
-	vec3 col = gb2.xyz;
+	vec4 gb0 = texture(u_gb0, fs_UV);
 
-
-	// Calculate the diffuse term for Lambert shading
-	vec3 normal_world_space = texture(u_gb0, fs_UV).xyz;
-
-	float camera_space_depth = -texture(u_gb0, fs_UV).w;
+	float camera_space_depth = -gb0.w;
 
 	// actually, we can know whether this fragment is 
 	// overlapped by a mesh by checking its depth
 	bool isPixelOverlap = (camera_space_depth > EPS);
 
 	if(isPixelOverlap){
-		// -------------------------------------------------------------
-		// directional light lambert term
-		float diffuseTerm = dot(normalize(normal_world_space), normalize(directional_lighting_dir));
+		vec4 gb1 = texture(u_gb1, fs_UV);
+		vec4 gb2 = texture(u_gb2, fs_UV);
+
+		float materialType = gb1.w;
 
 		// -------------------------------------------------------------
-		// point light lambert term
-		// reconstruct world space position from screen space position and camera space depth
+		// Shadow map portion
+		vec3 shadowPos = gb1.xyz;
 
-		// vec2 ndc_pos = vec2((2.0 * gl_FragCoord.x / u_Width) - 1.0, 
-		// 					1.0 - (2.0 * gl_FragCoord.y / u_Height));
-		// vec4 ndc_pos_vec4 = vec4(camera_space_depth * ndc_pos.x, camera_space_depth * ndc_pos.y, camera_space_depth, camera_space_depth);
-		// vec4 camera_space_pos = inverse(u_Proj) * ndc_pos_vec4;
-		// camera_space_pos.z = -camera_space_depth;
-		// camera_space_pos.w = 1.0;
-		// vec4 world_space_pos = inverse(u_View) * camera_space_pos;
-		
-		// float diffuseTerm = 0.0;
-		float ambientTerm = 0.08;
+		vec3 fragmentDepth = shadowPos;
+		float shadowAcneRemover = 0.000005;
+		fragmentDepth.z -= shadowAcneRemover;
 
-		// Lambert shading
-		// diffuseTerm = dot(normalize(normal_world_space), normalize(point_light_pos - world_space_pos.xyz));
-		
-		float lightIntensity = diffuseTerm + ambientTerm;   //Add a small float value to the color multiplier
-															//to simulate ambient lighting. This ensures that faces that are not
-															//lit by our point light are not completely black.
+		float texelSize = 1.0 / shadowDepthTextureSize;
+		float amountInLight = 0.0;
 
-		// Lambert shading
-		out_Col = vec4(lightIntensity * col, 1.0);
+		// we loop through nearby fragments and find out on average how much all of them are in shadow.
+		// This smooths out the edges of our shadow since with a limited resolution depth color texture some fragments at the edge
+		// might sample the wrong depth and thus lead to jagged edges.
+		for (int x = -1; x <= 1; x++) {
+			for (int y = -1; y <= 1; y++) {
+				vec2 textCoord = vec2(fragmentDepth.x + texelSize * float(x), fragmentDepth.y + texelSize * float(y));
+
+				vec4 fetchedCol = texture(u_shadowTexture, textCoord);
+
+				float texelDepth = decodeFloat(fetchedCol);
+
+				if (fragmentDepth.z < texelDepth) {
+					amountInLight += 1.0;
+				}
+			}
+		}
+		amountInLight /= 9.0;
+		amountInLight = clamp(amountInLight + 0.5, 0.0, 1.0);
+
+
+		// Water Material
+		if(materialType > 0.5){
+			// // -------------------------------------------------------------
+			// // Pure Mirror
+			// // Fetch reflection color from texture
+			// vec3 vReflectionMapTexCoord = gb2.xyz;
+			// vec2 projectedReflectionTexCoords = clamp(vReflectionMapTexCoord.xy / vReflectionMapTexCoord.z, 0.0, 1.0);
+        	// vec4 reflectiveColor = texture(u_waterReflectionTexutre, projectedReflectionTexCoords);
+
+			// out_Col = vec4(reflectiveColor.rgb, 1.0);
+
+			// -------------------------------------------------------------
+			// Water (refer to Three.js ocean demo https://threejs.org/examples/#webgl_shaders_ocean)
+			vec3 worldPosition = gb0.xyz;
+			vec4 noise = getNoise(worldPosition.xz * u_waterSize);
+    		vec3 surfaceNormal = normalize(noise.xzy * vec3( 1.5, 1.0, 1.5 ));
+			vec3 diffuseLight = vec3(0.0);
+			vec3 specularLight = vec3(0.0);
+    		vec3 worldToEye = u_Eye - worldPosition;
+    		vec3 eyeDirection = normalize(worldToEye);
+    		sunLight(surfaceNormal, eyeDirection, 100.0, 2.0, 0.5, diffuseLight, specularLight );
+    		float Distance = length(worldToEye);
+    		vec2 distortion = surfaceNormal.xz * ( 0.001 + 1.0 / Distance ) * u_waterDistortionScale;
+
+			vec3 vReflectionMapTexCoord = gb2.xyz;
+			vec2 projectedReflectionTexCoords = clamp(vReflectionMapTexCoord.xy / vReflectionMapTexCoord.z + distortion, 0.0, 1.0);
+        	vec3 reflectionSample = texture(u_waterReflectionTexutre, projectedReflectionTexCoords).rgb;
+
+			float theta = max(dot(eyeDirection, surfaceNormal), 0.0);
+			float rf0 = 0.3;
+			float reflectance = rf0 + ( 1.0 - rf0 ) * pow(( 1.0 - theta ), 5.0);
+			vec3 scatter = max(0.0, dot(surfaceNormal, eyeDirection)) * waterColor;
+
+			vec3 albedo = mix((sunColor * diffuseLight * 0.3 + scatter) * amountInLight, (vec3(0.1) + reflectionSample * 0.9 + reflectionSample * specularLight), reflectance);
+			
+			out_Col = vec4(albedo, 1.0);
+		}
+		// Lambert Shading
+		else{
+			// Calculate the diffuse term for Lambert shading
+			vec3 normal_world_space = gb0.xyz;
+
+			float ambientTerm = 0.08;
+
+			// -------------------------------------------------------------
+			// directional light lambert term
+			float diffuseTerm = dot(normalize(normal_world_space), normalize(directional_lighting_dir));
+
+			// -------------------------------------------------------------
+			// point light lambert term
+			// reconstruct world space position from screen space position and camera space depth
+
+			// vec2 ndc_pos = vec2((2.0 * gl_FragCoord.x / u_Width) - 1.0, 
+			// 					1.0 - (2.0 * gl_FragCoord.y / u_Height));
+			// vec4 ndc_pos_vec4 = vec4(camera_space_depth * ndc_pos.x, camera_space_depth * ndc_pos.y, camera_space_depth, camera_space_depth);
+			// vec4 camera_space_pos = inverse(u_Proj) * ndc_pos_vec4;
+			// camera_space_pos.z = -camera_space_depth;
+			// camera_space_pos.w = 1.0;
+			// vec4 world_space_pos = inverse(u_View) * camera_space_pos;
+			
+			// float diffuseTerm = 0.0;
+
+			// diffuseTerm = dot(normalize(normal_world_space), normalize(point_light_pos - world_space_pos.xyz));
+			
+			float lightIntensity = diffuseTerm + ambientTerm;   //Add a small float value to the color multiplier
+																//to simulate ambient lighting. This ensures that faces that are not
+																//lit by our point light are not completely black.
+
+
+			// -------------------------------------------------------------
+			// Lambert shading
+			vec3 col = gb2.xyz; // albedo color fetched from texture
+			out_Col = vec4(lightIntensity * amountInLight * col, 1.0);
+		}
 	}
+
 	// background
 	else{
-		// TODO : use sky box here
-		out_Col = vec4(65.0 / 255.0, 166.0 / 255.0, 136.0 / 255.0, 1.0);
+		// fetch Sky box color from texture
+		out_Col = texture(u_BgTexutre, fs_UV);
 	}
+
+
 
 
 	// -------------------------------------------------------------

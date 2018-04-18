@@ -41,8 +41,8 @@ void main() {
 	
 	// ------------------------------------
 	// Method 2 : Optimized formula by Jim Hejl and Richard Burgess-Dawson
-	vec3 x = max(vec3(0.0), color - vec3(0.004));
-	color = (x * (vec3(6.2) * x + vec3(0.5))) / (x * (vec3(6.2) * x + vec3(1.7)) + vec3(0.06));
+	// vec3 x = max(vec3(0.0), color - vec3(0.004));
+	// color = (x * (vec3(6.2) * x + vec3(0.5))) / (x * (vec3(6.2) * x + vec3(1.7)) + vec3(0.06));
 	
 	// ------------------------------------
 	// Method 3 : Uncharted 2 operator
