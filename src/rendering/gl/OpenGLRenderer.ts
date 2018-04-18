@@ -457,7 +457,7 @@ class OpenGLRenderer {
 
     gbProg.setTime(this.currentTime);
     
-    gbProg.setDeferredMaterialType(0.0); // Defer material and later deferred shading method 
+    gbProg.setDeferredMaterialType(51); // Defer material and later deferred shading method 
 
     // shadow map view project matrix
     if(this.lightViewProjMatrix != null){
@@ -478,7 +478,7 @@ class OpenGLRenderer {
     }
 
     // save water layer basic info
-    gbProg.setDeferredMaterialType(1.0);
+    gbProg.setDeferredMaterialType(101);
     gbProg.setModelMatrix(water.square.model);
 
     // -----------------------------------------------------

@@ -226,6 +226,9 @@ void main() {
                       vec3 color = (col * lightIntensity * shadow2 + specular * u_SandEdge * shadow1);
                       color += u_Brightness * max(color - u_Level, vec3(0.0));
                       color = mix(color, u_SandDiffuse.rgb, fogFactorExp(camera_space_depth));
+
+					  vec3 x = max(vec3(0.0), color - vec3(0.004));
+	                  color = (x * (vec3(6.2) * x + vec3(0.5))) / (x * (vec3(6.2) * x + vec3(1.7)) + vec3(0.06));
                       out_Col = vec4(color, 1.0);
     }
 

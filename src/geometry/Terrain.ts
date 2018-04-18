@@ -20,10 +20,11 @@ class Terrain extends Drawable {
   size: number;
   seed: number;
   gridsize2: number;
+  center: vec4;
 
   constructor(width: number, height: number, widthSegments: number, heightSegments: number, 
     octaves: number = 6, depth: number = 50.0, size: number = 4.0, seed: number = 0.0,
-    model: mat4, gridsize2: number = 0) {
+    model: mat4, center: vec4, gridsize2: number = 0) {
     super(); // Call the constructor of the super class. This is required.
     //this.center = vec4.fromValues(center[0], center[1], center[2], 1);
     this.width = width;
@@ -36,6 +37,7 @@ class Terrain extends Drawable {
     this.size = size;
     this.seed = seed;
     this.gridsize2 = gridsize2;
+    this.center = center;
   }
 
   fract(x: number){
@@ -157,13 +159,13 @@ class Terrain extends Drawable {
 
           if(x<this.gridsize2/2.0 && x>-this.gridsize2/2.0 && -y<this.gridsize2/2.0 && -y>-this.gridsize2/2.0)
           {
-            vertices.push( x, - this.depth / 2.0, - y, 1 );
+            vertices.push( x, - this.depth / 2.0 + this.center[1], - y, 1 );
             normals.push(0, 1, 0, 0);
           }
           else
           {
             var z = this.FBM(vec2.fromValues(x / this.widthSegments, y / this.heightSegments)) * this.depth;
-            vertices.push( x, z - this.depth / 2.0, - y, 1 );
+            vertices.push( x, z - this.depth / 2.0 + this.center[1], - y, 1 );
             var nor = this.returnnormal(vec2.fromValues(x, y));
             normals.push( nor[0], nor[1], nor[2], 0 );
           }
