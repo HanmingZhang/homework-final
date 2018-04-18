@@ -238,13 +238,13 @@ function loadScene() {
   mat4.identity(modelMatrix);
   terrain = new Terrain(controls.GridSize, controls.GridSize, controls.Division, controls.Division, 
     controls.Octaves, controls.Depth, controls.NoiseSize, controls.Seed,
-    modelMatrix);
+    modelMatrix, vec4.fromValues(0.0, 100.0, 0.0, 0.0));
   terrain.create();
 
   mat4.identity(modelMatrix);
   terrain2 = new Terrain(controls.GridSize2, controls.GridSize2, controls.Division, controls.Division, 
     controls.Octaves, controls.Depth, controls.NoiseSize, controls.Seed,
-    modelMatrix, controls.GridSize - 10 );
+    modelMatrix, vec4.fromValues(0.0, 100.0, 0.0, 0.0), controls.GridSize - 10 );
   terrain2.create();
 
   var num = 100.0;
@@ -641,12 +641,12 @@ function main() {
       
       // forward render mesh info into gbuffers
       terrainDeferred.setGridSize(controls.GridSize);
-      renderer.renderToGBuffer(camera, terrainDeferred, [terrain]); 
+      renderer.renderToGBuffer(camera, terrainDeferred, [terrain], water); 
       terrainDeferred.setGridSize(controls.GridSize2);
-      renderer.renderToGBuffer(camera, terrainDeferred, [terrain2]);   
-      renderer.renderToGBuffer(camera, mounDeferred, [scatter0, scatter1]);  
+      renderer.renderToGBuffer(camera, terrainDeferred, [terrain2], water);   
+      renderer.renderToGBuffer(camera, mounDeferred, [scatter0, scatter1], water);  
       //renderer.renderToGBuffer(camera, mounDeferred, [scatter0]);   
-      renderer.renderToGBuffer(camera, ribbonDeferred, [scatter2]); 
+      renderer.renderToGBuffer(camera, ribbonDeferred, [scatter2], water); 
     
       
       
