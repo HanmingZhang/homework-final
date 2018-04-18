@@ -26,6 +26,7 @@ class ShaderProgram {
   attrNor: number;
   attrCol: number;
   attrUV: number;
+  attrDep: number;
 
   unifModel: WebGLUniformLocation;
   unifModelInvTr: WebGLUniformLocation;
@@ -52,6 +53,35 @@ class ShaderProgram {
 
   unifFadeLevel: WebGLUniformLocation;
 
+  unifGridSize: WebGLUniformLocation;
+  unifDivision: WebGLUniformLocation;
+  unifCameraPos: WebGLUniformLocation;
+
+  unifRoughness: WebGLUniformLocation;
+  unifShininess: WebGLUniformLocation;
+  unifAmbient: WebGLUniformLocation;
+  unifBrightness: WebGLUniformLocation;
+  unifLevel: WebGLUniformLocation;
+
+  unifSandEdge: WebGLUniformLocation;
+  unifSandSteep: WebGLUniformLocation;
+  unifFlowEdge: WebGLUniformLocation;
+  unifFlowSpeed: WebGLUniformLocation;
+
+  unifSandDiffuse: WebGLUniformLocation;
+  unifSandSpecular: WebGLUniformLocation;
+  unifFogDensity: WebGLUniformLocation;
+
+  unifCloudEdge: WebGLUniformLocation;
+  unifCloudSize: WebGLUniformLocation;
+  unifCloudSpeed: WebGLUniformLocation;
+  unifCloudSpeed2: WebGLUniformLocation;
+  unifCloudNoise: WebGLUniformLocation;
+
+  unifAmount: WebGLUniformLocation;
+  unifAmount2: WebGLUniformLocation;
+  unifAmount3: WebGLUniformLocation;
+
   unifTexUnits: Map<string, WebGLUniformLocation>;
 
   constructor(shaders: Array<Shader>) {
@@ -68,7 +98,8 @@ class ShaderProgram {
     this.attrPos = gl.getAttribLocation(this.prog, "vs_Pos");
     this.attrNor = gl.getAttribLocation(this.prog, "vs_Nor");
     this.attrCol = gl.getAttribLocation(this.prog, "vs_Col");
-    this.attrUV = gl.getAttribLocation(this.prog, "vs_UV")
+    this.attrUV = gl.getAttribLocation(this.prog, "vs_UV");
+    this.attrDep = gl.getAttribLocation(this.prog, "vs_Dep");
     this.unifModel = gl.getUniformLocation(this.prog, "u_Model");
     this.unifModelInvTr = gl.getUniformLocation(this.prog, "u_ModelInvTr");
     this.unifViewProj = gl.getUniformLocation(this.prog, "u_ViewProj");
@@ -93,6 +124,35 @@ class ShaderProgram {
     this.unifEnableTexture = gl.getUniformLocation(this.prog, "u_EnableTexture");
 
     this.unifFadeLevel = gl.getUniformLocation(this.prog, "u_fadeLevel");
+
+    this.unifGridSize = gl.getUniformLocation(this.prog, "u_GridSize");
+    this.unifDivision = gl.getUniformLocation(this.prog, "u_Division");
+    this.unifCameraPos = gl.getUniformLocation(this.prog, "u_CameraPos");
+
+    this.unifRoughness = gl.getUniformLocation(this.prog, "u_Roughness");
+    this.unifShininess = gl.getUniformLocation(this.prog, "u_Shininess");
+    this.unifAmbient = gl.getUniformLocation(this.prog, "u_Ambient");
+    this.unifBrightness = gl.getUniformLocation(this.prog, "u_Brightness");
+    this.unifLevel = gl.getUniformLocation(this.prog, "u_Level");
+
+    this.unifSandEdge = gl.getUniformLocation(this.prog, "u_SandEdge");
+    this.unifSandSteep = gl.getUniformLocation(this.prog, "u_SandSteep");
+    this.unifFlowEdge = gl.getUniformLocation(this.prog, "u_FlowEdge");
+    this.unifFlowSpeed = gl.getUniformLocation(this.prog, "u_FlowSpeed");
+
+    this.unifSandDiffuse = gl.getUniformLocation(this.prog, "u_SandDiffuse");
+    this.unifSandSpecular = gl.getUniformLocation(this.prog, "u_SandSpecular");
+    this.unifFogDensity = gl.getUniformLocation(this.prog, "u_FogDensity");
+
+    this.unifCloudEdge = gl.getUniformLocation(this.prog, "u_CloudEdge");
+    this.unifCloudSize = gl.getUniformLocation(this.prog, "u_CloudSize");
+    this.unifCloudNoise = gl.getUniformLocation(this.prog, "u_CloudNoise");
+    this.unifCloudSpeed = gl.getUniformLocation(this.prog, "u_CloudSpeed");
+    this.unifCloudSpeed2 = gl.getUniformLocation(this.prog, "u_CloudSpeed2");
+
+    this.unifAmount = gl.getUniformLocation(this.prog, "u_Amount");
+    this.unifAmount2 = gl.getUniformLocation(this.prog, "u_Amount2");
+    this.unifAmount3 = gl.getUniformLocation(this.prog, "u_Amount3");
 
     this.unifTexUnits = new Map<string, WebGLUniformLocation>();
   }
@@ -265,6 +325,167 @@ class ShaderProgram {
     }
   }
 
+  setGridSize(t: number) {
+    this.use();
+    if (this.unifGridSize !== -1) {
+      gl.uniform1f(this.unifGridSize, t);
+    }
+  }
+
+  setDivision(t: number) {
+    this.use();
+    if (this.unifDivision !== -1) {
+      gl.uniform1f(this.unifDivision, t);
+    }
+  }
+
+  setCameraPos(t: vec4) {
+    this.use();
+    if (this.unifCameraPos !== -1) {
+      gl.uniform4fv(this.unifCameraPos, t);
+    }
+  }
+
+  setRoughness(t: number) {
+    this.use();
+    if (this.unifRoughness !== -1) {
+      gl.uniform1f(this.unifRoughness, t);
+    }
+  }
+
+  setShininess(t: number) {
+    this.use();
+    if (this.unifShininess !== -1) {
+      gl.uniform1f(this.unifShininess, t);
+    }
+  }
+
+  setAmbient(t: number) {
+    this.use();
+    if (this.unifAmbient !== -1) {
+      gl.uniform1f(this.unifAmbient, t);
+    }
+  }
+
+  setBrightness(t: number) {
+    this.use();
+    if (this.unifBrightness !== -1) {
+      gl.uniform1f(this.unifBrightness, t);
+    }
+  }
+
+  setLevel(t: number) {
+    this.use();
+    if (this.unifLevel !== -1) {
+      gl.uniform1f(this.unifLevel, t);
+    }
+  }
+
+  setSandEdge(t: number) {
+    this.use();
+    if (this.unifSandEdge !== -1) {
+      gl.uniform1f(this.unifSandEdge, t);
+    }
+  }
+
+  setSandSteep(t: number) {
+    this.use();
+    if (this.unifSandSteep !== -1) {
+      gl.uniform1f(this.unifSandSteep, t);
+    }
+  }
+
+  setFlowEdge(t: number) {
+    this.use();
+    if (this.unifFlowEdge !== -1) {
+      gl.uniform1f(this.unifFlowEdge, t);
+    }
+  }
+
+  setFlowSpeed(t: number) {
+    this.use();
+    if (this.unifFlowSpeed !== -1) {
+      gl.uniform1f(this.unifFlowSpeed, t);
+    }
+  }
+
+  setSandDiffuse(t: vec4) {
+    this.use();
+    if (this.unifSandDiffuse !== -1) {
+      gl.uniform4fv(this.unifSandDiffuse, t);
+    }
+  }
+
+  setSandSpecular(t: vec4) {
+    this.use();
+    if (this.unifSandSpecular !== -1) {
+      gl.uniform4fv(this.unifSandSpecular, t);
+    }
+  }
+
+  setFogDensity(t: number) {
+    this.use();
+    if (this.unifFogDensity !== -1) {
+      gl.uniform1f(this.unifFogDensity, t);
+    }
+  }
+
+  setCloudEdge(t: number) {
+    this.use();
+    if (this.unifCloudEdge !== -1) {
+      gl.uniform1f(this.unifCloudEdge, t);
+    }
+  }
+
+  setCloudSize(t: number) {
+    this.use();
+    if (this.unifCloudSize !== -1) {
+      gl.uniform1f(this.unifCloudSize, t);
+    }
+  }
+
+  setCloudSpeed(t: number) {
+    this.use();
+    if (this.unifCloudSpeed !== -1) {
+      gl.uniform1f(this.unifCloudSpeed, t);
+    }
+  }
+
+  setCloudSpeed2(t: number) {
+    this.use();
+    if (this.unifCloudSpeed2 !== -1) {
+      gl.uniform1f(this.unifCloudSpeed2, t);
+    }
+  }
+
+  setCloudNoise(t: number) {
+    this.use();
+    if (this.unifCloudNoise !== -1) {
+      gl.uniform1f(this.unifCloudNoise, t);
+    }
+  }
+
+  setAmount(t: number) {
+    this.use();
+    if (this.unifAmount !== -1) {
+      gl.uniform1f(this.unifAmount, t);
+    }
+  }
+
+  setAmount2(t: number) {
+    this.use();
+    if (this.unifAmount2 !== -1) {
+      gl.uniform1f(this.unifAmount2, t);
+    }
+  }
+
+  setAmount3(t: number) {
+    this.use();
+    if (this.unifAmount3 !== -1) {
+      gl.uniform1f(this.unifAmount3, t);
+    }
+  }
+
   draw(d: Drawable) {
     this.use();
 
@@ -288,6 +509,11 @@ class ShaderProgram {
       gl.vertexAttribPointer(this.attrUV, 2, gl.FLOAT, false, 0, 0);
     }
 
+    if (this.attrDep != -1 && d.bindDep()) {
+      gl.enableVertexAttribArray(this.attrDep);
+      gl.vertexAttribPointer(this.attrDep, 1, gl.FLOAT, false, 0, 0);
+    }
+
     d.bindIdx();
     gl.drawElements(d.drawMode(), d.elemCount(), gl.UNSIGNED_INT, 0);
 
@@ -295,6 +521,7 @@ class ShaderProgram {
     if (this.attrNor != -1) gl.disableVertexAttribArray(this.attrNor);
     if (this.attrCol != -1) gl.disableVertexAttribArray(this.attrCol);
     if (this.attrUV != -1) gl.disableVertexAttribArray(this.attrUV);
+    if (this.attrDep != -1) gl.disableVertexAttribArray(this.attrDep);
   }
 };
 

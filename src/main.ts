@@ -2,7 +2,10 @@ import {vec3, vec4, mat4} from 'gl-matrix';
 import * as Stats from 'stats-js';
 import * as DAT from 'dat-gui';
 import Square from './geometry/Square';
+import Grid from './geometry/Grid';
+import Terrain from './geometry/Terrain'; 
 import Mesh from './geometry/Mesh';
+import Scatter from './geometry/Scatter';
 import Icosphere from './geometry/Icosphere';
 import OpenGLRenderer from './rendering/gl/OpenGLRenderer';
 import Camera from './Camera';
@@ -25,7 +28,9 @@ export interface CAMERA_SEQUENCE{
   endPos: vec3;
 };
 
-const camera = new Camera(vec3.fromValues(0, 20, 80), vec3.fromValues(0, 25, 0));
+const camera = new Camera(vec3.fromValues(0, 20, 50), vec3.fromValues(0, 0, 0));
+//const camera = new Camera(vec3.fromValues(37.907327145400544,-4.677375415062954,-219.96961545785845), 
+//                          vec3.fromValues(42.74449312341487,23.357502528180277,3.9124481030706217));
 const cameraDemoModeLength = 66000; // milliseconds (66 seconds)
 var renderer: OpenGLRenderer;
 
@@ -77,18 +82,78 @@ const controls = {
 
   // Print camera info
   PrintCamInfo: printCamInfo,
+
+  // Terrain
+  GridSize: 300,
+  Division: 300,
+  Octaves: 6,
+  Depth: 400,
+  NoiseSize: 0.25,
+  Seed: 3.0,
+
+  GridSize2: 2000,
+
+  // Material
+  Roughness: 0.2,
+  Shininess: 20.0,
+  Ambient: 0.15,
+  Brightness: 7.0,
+  Level: 0.54,
+  Specular: 1.0,
+
+  SandEdge: 3.0,
+  SandSteep: 0.2,
+  FlowEdge: 0.2,
+  FlowSpeed: 0.05,
+
+  SandDiffuse: [255, 196, 155],//[237.0, 201.0, 175.0],
+  SandSpecular: [255, 225, 155], //[155, 237, 255],//[255.0, 245.0, 231.0],
+  MounDiffuse: [32, 22, 20],
+  FogColor: [255, 192, 199],
+  FogDensity: 0.0005,
+
+  MounEdge: 0.2,
+
+  CloudEdge: 0.8,
+  CloudSize: 0.35,
+  CloudSpeed: 0.02,
+  CloudSpeed2: 0.15,
+  CloudNoise: 300,
+  CloudStrength: 2.4,
+  CloudLight: 0.15,
+
+  RibbonDiffuse: [237, 48, 59], //[195, 59, 44],
+  RibbonEdge: 0.0,
+  RibbonAmount: 1.0,
+  RibbonAmount2: 6.2,
+  RibbonAmount3: 3.4,
 };
 
 let square: Square;
 let sphere: Icosphere;
-
+let grid: Grid;
+let terrain: Terrain;
+let terrain2: Terrain;
 
 // TODO: replace with your scene's stuff
 
 let obj0: string;
+let obj1: string;
+let obj2: string;
 let mesh0: Mesh;
+let scatter0: Scatter;
+let scatter1: Scatter;
+let scatter2: Scatter;
 
 let tex0: Texture;
+let terrain_diffuse: Texture;
+let terrain_normal: Texture;
+let terrain_specular: Texture;
+let sand_normal: Texture;
+let sand_normal2: Texture;
+let moun_diffuse: Texture;
+let moun_normal: Texture;
+let moun_specular: Texture;
 
 var timer = {
   deltaTime: 0.0,
@@ -96,7 +161,7 @@ var timer = {
   currentTime: 0.0,
   updateTime: function() {
     var t = Date.now();
-    t = (t - timer.startTime) * 0.001;
+    t = (t - timer.startTime) * 0.0005;
     timer.deltaTime = t - timer.currentTime;
     timer.currentTime = t;
   },
@@ -105,12 +170,17 @@ var timer = {
 
 function loadOBJText() {
   obj0 = readTextFile('resources/obj/wahoo.obj');
+  obj1 = readTextFile('resources/obj/monument.obj');
+  obj2 = readTextFile('resources/obj/ribbon.obj');
 }
 
 
 function loadScene() {
   square && square.destroy();
   mesh0 && mesh0.destroy();
+  scatter0 && scatter0.destroy();
+  scatter1 && scatter1.destroy();
+  scatter2 && scatter2.destroy();
   sphere && sphere.destroy();
 
   let modelMatrix = mat4.create();
@@ -128,12 +198,64 @@ function loadScene() {
   mesh0.create();
 
   mat4.identity(modelMatrix);
-  sphere = new Icosphere(vec3.fromValues(0.0, 50.0, -50.0), 10.0, 6.0, modelMatrix);
+  sphere = new Icosphere(vec3.fromValues(50.0, 50.0, 50.0), 10.0, 6.0, modelMatrix);
   sphere.create();
 
-  tex0 = new Texture('resources/textures/wahoo.bmp');
-}
+  mat4.identity(modelMatrix);
+  grid = new Grid(controls.GridSize, controls.GridSize, controls.Division, controls.Division, modelMatrix);
+  grid.create();
 
+  mat4.identity(modelMatrix);
+  terrain = new Terrain(controls.GridSize, controls.GridSize, controls.Division, controls.Division, 
+    controls.Octaves, controls.Depth, controls.NoiseSize, controls.Seed,
+    modelMatrix);
+  terrain.create();
+
+  mat4.identity(modelMatrix);
+  terrain2 = new Terrain(controls.GridSize2, controls.GridSize2, controls.Division, controls.Division, 
+    controls.Octaves, controls.Depth, controls.NoiseSize, controls.Seed,
+    modelMatrix, controls.GridSize - 10 );
+  terrain2.create();
+
+  var num = 100.0;
+  var randomnums: Array<number> = [];
+  for(var j = 0; j < num; j++)
+  {
+    var rand = Math.floor(Math.random() * terrain.positions.length / 4.0);
+    randomnums.push(rand);
+  }
+
+  mat4.identity(modelMatrix);
+  scatter0 = new Scatter(obj1, vec3.fromValues(0, 0, 0), modelMatrix, randomnums, terrain);
+  scatter0.create();
+
+  mat4.identity(modelMatrix);
+  scatter2 = new Scatter(obj2, vec3.fromValues(0, 0, 0), modelMatrix, randomnums, terrain);
+  scatter2.create2();
+
+  num = 1000.0;
+  randomnums = new Array<number>();
+  for(var j = 0; j < num; j++)
+  {
+    var rand = Math.floor(Math.random() * terrain.positions.length / 4.0);
+    randomnums.push(rand);
+  }
+
+  mat4.identity(modelMatrix);
+  scatter1 = new Scatter(obj1, vec3.fromValues(0, 0, 0), modelMatrix, randomnums, terrain2);
+  scatter1.create();
+
+
+  tex0 = new Texture('resources/textures/wahoo.bmp');
+  terrain_diffuse = new Texture('resources/textures/plaster-nk-01.png');
+  terrain_normal = new Texture('resources/textures/plaster-nk-01-normal.png');
+  terrain_specular = new Texture('resources/textures/grass-spec.png');
+  sand_normal = new Texture('resources/textures/12527-normal.jpg');
+  sand_normal2 = new Texture('resources/textures/12528-normal.jpg');
+  moun_diffuse = new Texture('resources/textures/plaster-nk-01.png');
+  moun_normal = new Texture('resources/textures/plaster-nk-01-normal.png');
+  moun_specular = new Texture('resources/textures/plaster-nk-01-spec.png');
+}
 
 function main() {
   // Initial display for framerate
@@ -170,6 +292,36 @@ function main() {
 
   standardDeferred.setupTexUnits(["tex_Color"]);
   standardDeferred.setGeometryColor(vec4.fromValues(0.2, 0.2, 0.2, 1.0));
+
+  const terrainDeferred = new ShaderProgram([
+    new Shader(gl.VERTEX_SHADER, require('./shaders/terrain-vert.glsl')),
+    new Shader(gl.FRAGMENT_SHADER, require('./shaders/terrain-frag.glsl')),
+    ]);
+
+  terrainDeferred.setupTexUnits(["tex_Color"]);
+  terrainDeferred.setupTexUnits(["tex_Normal"]);
+  terrainDeferred.setupTexUnits(["tex_Specular"]);
+  terrainDeferred.setupTexUnits(["sand_Normal"]);  
+  terrainDeferred.setupTexUnits(["sand_Normal2"]); 
+  terrainDeferred.setDivision(controls.Division); 
+
+  const mounDeferred = new ShaderProgram([
+    new Shader(gl.VERTEX_SHADER, require('./shaders/mounment-vert.glsl')),
+    new Shader(gl.FRAGMENT_SHADER, require('./shaders/mounment-frag.glsl')),
+    ]);
+
+  mounDeferred.setupTexUnits(["tex_Color"]);
+  mounDeferred.setupTexUnits(["tex_Normal"]);
+  mounDeferred.setupTexUnits(["tex_Specular"]);
+
+  const ribbonDeferred = new ShaderProgram([
+    new Shader(gl.VERTEX_SHADER, require('./shaders/ribbon-vert.glsl')),
+    new Shader(gl.FRAGMENT_SHADER, require('./shaders/ribbon-frag.glsl')),
+    ]);
+
+  ribbonDeferred.setupTexUnits(["tex_Color"]);
+  ribbonDeferred.setupTexUnits(["tex_Normal"]);
+  ribbonDeferred.setupTexUnits(["tex_Specular"]);
 
 
   // -------------------------------------------------------------------
@@ -273,7 +425,39 @@ function main() {
 
   gui.add(controls, 'DemoMode');
 
-
+  var f3 = gui.addFolder('Deferred');
+  f3.add(controls, 'Roughness', 0, 1).step(0.01);
+  f3.add(controls, 'Shininess', 0, 20).step(0.01);
+  f3.add(controls, 'Specular', 0, 5).step(0.01);
+  f3.add(controls, 'Ambient', 0, 1).step(0.01);
+  f3.add(controls, 'Brightness', 0, 20).step(0.01);
+  f3.add(controls, 'Level', 0, 1).step(0.01);
+  f3.add(controls, 'FogDensity', 0, 0.01).step(0.0001); 
+  f3.addColor(controls, 'FogColor');
+  f3.addColor(controls, 'SandSpecular');
+  var f4 = gui.addFolder('Sand');
+  f4.add(controls, 'SandEdge', 0, 10).step(0.01);
+  f4.add(controls, 'SandSteep', -1, 1).step(0.01); 
+  f4.add(controls, 'FlowEdge', -1, 1).step(0.01);
+  f4.add(controls, 'FlowSpeed', 0, 1).step(0.01);
+  f4.addColor(controls, 'SandDiffuse');
+  var f5 = gui.addFolder('Mounments');
+  f5.addColor(controls, 'MounDiffuse');
+  f5.add(controls, 'MounEdge', 0, 1).step(0.01);
+  var f5 = gui.addFolder('Cloud');
+  f5.add(controls, 'CloudSize', -1, 1).step(0.01);
+  f5.add(controls, 'CloudEdge', 0, 5).step(0.01);
+  f5.add(controls, 'CloudSpeed', 0, 1).step(0.01);
+  f5.add(controls, 'CloudSpeed2', 0, 1).step(0.01);
+  f5.add(controls, 'CloudNoise', 0, 600).step(0.01);
+  f5.add(controls, 'CloudStrength', 0, 10).step(0.01);
+  f5.add(controls, 'CloudLight', 0, 1).step(0.01);
+  var f6 = gui.addFolder('Ribbon');
+  f6.addColor(controls, 'RibbonDiffuse');
+  f6.add(controls, 'RibbonEdge', -1, 1).step(0.01);
+  f6.add(controls, 'RibbonAmount', 0, 10).step(0.01);
+  f6.add(controls, 'RibbonAmount2', 0, 10).step(0.01);
+  f6.add(controls, 'RibbonAmount3', 0, 10).step(0.01);
   // -------------------------------------------------------------------
   function tick() {
     camera.update();
@@ -289,6 +473,51 @@ function main() {
 
 
     standardDeferred.bindTexToUnit("tex_Color", tex0, 0);
+    terrainDeferred.bindTexToUnit("tex_Color", terrain_diffuse, 1);
+    terrainDeferred.bindTexToUnit("tex_Normal", terrain_normal, 2);
+    terrainDeferred.bindTexToUnit("tex_Specular", terrain_specular, 3);
+    terrainDeferred.bindTexToUnit("sand_Normal", sand_normal, 4);
+    terrainDeferred.bindTexToUnit("sand_Normal2", sand_normal2, 5);
+    terrainDeferred.setSandEdge(controls.SandEdge);
+    terrainDeferred.setSandSteep(controls.SandSteep);
+    terrainDeferred.setFlowEdge(controls.FlowEdge);
+    terrainDeferred.setFlowSpeed(controls.FlowSpeed);
+    terrainDeferred.setTime(timer.currentTime);
+    terrainDeferred.setSandDiffuse(vec4.fromValues(controls.SandDiffuse[0]/255, controls.SandDiffuse[1]/255, controls.SandDiffuse[2]/255, 1.0));
+    terrainDeferred.setCloudEdge(controls.CloudEdge);
+    terrainDeferred.setCloudSize(controls.CloudSize);
+    terrainDeferred.setCloudNoise(controls.CloudNoise);
+    terrainDeferred.setCloudSpeed(controls.CloudSpeed);
+    terrainDeferred.setCloudSpeed2(controls.CloudSpeed2);
+
+    mounDeferred.bindTexToUnit("tex_Color", moun_diffuse, 6);
+    mounDeferred.bindTexToUnit("tex_Normal", moun_normal, 7);
+    mounDeferred.bindTexToUnit("tex_Specular", moun_specular, 8);
+    mounDeferred.setSandDiffuse(vec4.fromValues(controls.MounDiffuse[0]/255, controls.MounDiffuse[1]/255, controls.MounDiffuse[2]/255, 1.0));
+    mounDeferred.setSandSpecular(vec4.fromValues(controls.SandDiffuse[0]/255, controls.SandDiffuse[1]/255, controls.SandDiffuse[2]/255, 1.0));
+    mounDeferred.setSandEdge(controls.MounEdge);
+    mounDeferred.setCloudEdge(controls.CloudEdge);
+    mounDeferred.setCloudSize(controls.CloudSize);
+    mounDeferred.setCloudNoise(controls.CloudNoise);
+    mounDeferred.setCloudSpeed(controls.CloudSpeed);
+    mounDeferred.setCloudSpeed2(controls.CloudSpeed2);
+    mounDeferred.setTime(timer.currentTime);
+
+    ribbonDeferred.bindTexToUnit("tex_Color", moun_diffuse, 6);
+    ribbonDeferred.bindTexToUnit("tex_Normal", moun_normal, 7);
+    ribbonDeferred.bindTexToUnit("tex_Specular", moun_specular, 8);
+    ribbonDeferred.setSandDiffuse(vec4.fromValues(controls.RibbonDiffuse[0]/255, controls.RibbonDiffuse[1]/255, controls.RibbonDiffuse[2]/255, 1.0));
+    ribbonDeferred.setSandSpecular(vec4.fromValues(controls.SandDiffuse[0]/255, controls.SandDiffuse[1]/255, controls.SandDiffuse[2]/255, 1.0));
+    ribbonDeferred.setSandEdge(controls.RibbonEdge);
+    ribbonDeferred.setCloudEdge(controls.CloudEdge);
+    ribbonDeferred.setCloudSize(controls.CloudSize);
+    ribbonDeferred.setCloudNoise(controls.CloudNoise);
+    ribbonDeferred.setCloudSpeed(controls.CloudSpeed);
+    ribbonDeferred.setCloudSpeed2(controls.CloudSpeed2);
+    ribbonDeferred.setTime(timer.currentTime);
+    ribbonDeferred.setAmount(controls.RibbonAmount);
+    ribbonDeferred.setAmount2(controls.RibbonAmount2);
+    ribbonDeferred.setAmount3(controls.RibbonAmount3);
 
     renderer.clear();
     renderer.clearGB();
@@ -298,13 +527,21 @@ function main() {
     // If it's God ray post process, we need to add an extra occlusion pass
     if(postProcessType == 2){
       // renderer.renderOcculusion(camera, sphere, []);
-      renderer.renderOcculusion(camera, sphere, [mesh0, square]);      
+      renderer.renderOcculusion(camera, sphere, [scatter0, scatter1, terrain, terrain2]);  
+      //renderer.renderOcculusion(camera, sphere, [scatter0, terrain, scatter2]);    
     }
 
     // forward render mesh info into gbuffers
-    renderer.renderToGBuffer(camera, standardDeferred, [mesh0, square]);      
+    terrainDeferred.setGridSize(controls.GridSize);
+    renderer.renderToGBuffer(camera, terrainDeferred, [terrain]); 
+    terrainDeferred.setGridSize(controls.GridSize2);
+    renderer.renderToGBuffer(camera, terrainDeferred, [terrain2]);   
+    renderer.renderToGBuffer(camera, mounDeferred, [scatter0, scatter1]);  
+    //renderer.renderToGBuffer(camera, mounDeferred, [scatter0]);   
+    renderer.renderToGBuffer(camera, ribbonDeferred, [scatter2]); 
+    
     // render from gbuffers into 32-bit color buffer
-    renderer.renderFromGBuffer(camera);
+    renderer.renderFromGBuffer(camera, controls);
 
 
     if(camera.camMode == CAMERA_MODE.DEMO_MODE){
