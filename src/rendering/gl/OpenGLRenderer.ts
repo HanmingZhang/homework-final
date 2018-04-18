@@ -466,7 +466,7 @@ class OpenGLRenderer {
 
     let i = 0 // control which drawable use textures and which use uniform color
     for (let drawable of drawables) {
-      if(i === 0){
+      if(i <= 1){
         gbProg.setEnableTexutre(true);
       }
       else{
@@ -521,7 +521,7 @@ class OpenGLRenderer {
   }
 
 
-  renderFromGBuffer(camera: Camera, water: Water, postProcessType: number) {
+  renderFromGBuffer(camera: Camera, water: Water, postProcessType: number, controls: any) {
     // if no need to post-process
     if(postProcessType == -1){
       if(this.camMode == CAMERA_MODE.INTERACTIVE_MODE){
@@ -551,6 +551,20 @@ class OpenGLRenderer {
     // render from gbuffer
     this.deferredShader.setViewMatrix(view);
     this.deferredShader.setProjMatrix(proj);
+
+    this.deferredShader.setCameraPos(vec4.fromValues(camera.controls.eye[0], camera.controls.eye[1], camera.controls.eye[2], 1.0));
+    this.deferredShader.setRoughness(controls.Roughness);
+    this.deferredShader.setShininess(controls.Shininess);
+    this.deferredShader.setAmbient(controls.Ambient);
+    this.deferredShader.setBrightness(controls.Brightness);
+    this.deferredShader.setLevel(controls.Level);
+    this.deferredShader.setSandEdge(controls.Specular);   
+    this.deferredShader.setSandDiffuse(vec4.fromValues(controls.FogColor[0]/255, controls.FogColor[1]/255, controls.FogColor[2]/255, 1.0));
+    this.deferredShader.setSandSpecular(vec4.fromValues(controls.SandSpecular[0]/255, controls.SandSpecular[1]/255, controls.SandSpecular[2]/255, 1.0)); 
+    this.deferredShader.setFogDensity(controls.FogDensity); 
+    this.deferredShader.setCloudSize(controls.CloudStrength); 
+    this.deferredShader.setCloudEdge(controls.CloudLight); 
+
 
     let gbTargetsLen = this.gbTargets.length;
     
@@ -610,7 +624,7 @@ class OpenGLRenderer {
       // Default post process
       case 0:
         thisPost32Passes = this.post32Passes;
-        thisPost8Passes  = this.post8Passes;
+        //thisPost8Passes  = this.post8Passes;
         break;
       // Bloom post process
       case 1:

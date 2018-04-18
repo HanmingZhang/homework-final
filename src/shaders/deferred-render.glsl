@@ -23,9 +23,30 @@ uniform mat4 u_Proj;
 uniform vec3 u_Eye;
 uniform vec3 u_SunDirection;
 
+
+uniform vec4 u_CameraPos;   
+
+uniform float u_Roughness;
+uniform float u_Shininess;
+uniform float u_Ambient;
+uniform float u_Brightness;
+uniform float u_Level;
+uniform float u_SandEdge;
+
+uniform vec4 u_SandDiffuse;
+uniform vec4 u_SandSpecular;
+uniform float u_FogDensity;
+
+uniform float u_CloudSize;
+uniform float u_CloudEdge;
+
+// directional light
+// const vec3 directional_lighting_dir = normalize(vec3(1.0, 1.0, 1.0)); 
+
 uniform sampler2D u_shadowTexture;
 
 uniform sampler2D u_BgTexutre;
+
 
 uniform sampler2D u_waterReflectionTexutre;
 uniform sampler2D u_waterNoramlTexture;
@@ -81,17 +102,45 @@ void sunLight(vec3 surfaceNormal, vec3 eyeDirection, float shiny, float spec, fl
     diffuseColor += max( dot( u_SunDirection, surfaceNormal ), 0.0 ) * sunColor * diffuse;
 }
 
+float lightingOrenNayerEval(const vec3 directionToLight,const vec3 surfaceNormal,const vec3 directionToEye,float materialRoughness){
+	float NdotL = dot(surfaceNormal,directionToLight);
+	float NdotV = dot(surfaceNormal,directionToEye);
+	
+	/*
+	See: http://fgiesen.wordpress.com/2010/10/21/finish-your-derivations-please/
+	float angleVN = acos(NdotV);
+	float angleLN = acos(NdotL);
+	float alpha = max(angleVN,angleLN);
+	float beta = min(angleVN,angleLN);
+	float C = sin(alpha) * tan(beta);
+	*/
+	float C = sqrt((1.0 - NdotV*NdotV) * (1.0 - NdotL*NdotL)) / max(NdotV, NdotL);
+	float gamma = dot(directionToEye - surfaceNormal * NdotV,directionToLight - surfaceNormal * NdotL);
+	
+	float roughnessSquared = materialRoughness*materialRoughness;
+	float A = 1.0 - 0.5 * (roughnessSquared / (roughnessSquared + 0.33));
+	float B = 0.45 * (roughnessSquared / (roughnessSquared + 0.09));
+	float diffuseTerm = max(0.0, NdotL) * (B * max(0.0, gamma) * C + A);
+	return diffuseTerm;
+}
+
+float fogFactorExp(const float dist) {
+  return 1.0 - clamp(exp(-u_FogDensity * dist), 0.0, 1.0);
+}
+
 void main() { 
 	// read from GBuffers
 	vec4 gb0 = texture(u_gb0, fs_UV);
 
 	float camera_space_depth = -gb0.w;
 
+
 	// actually, we can know whether this fragment is 
 	// overlapped by a mesh by checking its depth
 	bool isPixelOverlap = (camera_space_depth > EPS);
 
 	if(isPixelOverlap){
+
 		vec4 gb1 = texture(u_gb1, fs_UV);
 		vec4 gb2 = texture(u_gb2, fs_UV);
 
@@ -126,10 +175,62 @@ void main() {
 		}
 		amountInLight /= 9.0;
 		amountInLight = clamp(amountInLight + 0.5, 0.0, 1.0);
+  
+  
+    // Sand Material
+    if(materialType > -0.1 && materialType < 1.1){
+      vec3 col = gb2.xyz;
+	    float shadow = gb2.w;
+      vec3 pos = gb1.xyz;
+	    float spe = materialType;
+	    // Calculate the diffuse term for Lambert shading
+	    vec3 normal_world_space = texture(u_gb0, fs_UV).xyz;
 
+    	//vec3 sandcolor = vec3(237.0/255.0, 201.0/255.0, 175.0/255.0);
+                      //specular, blin_phong
+                      //vec3 lightColor = vec3(255.0/255.0, 245.0/255.0, 231.0/255.0);
+                      vec3 viewDir = normalize(u_CameraPos.xyz - pos);
+                      vec3 halfwayDir = normalize(normalize(directional_lighting_dir) + viewDir);
+                      float blin = pow(max(dot(normal_world_space, halfwayDir), 0.0), u_Shininess);
+                      vec3 specular = spe * u_SandSpecular.xyz * blin;
+                      // -------------------------------------------------------------
+                      // directional light lambert term
+                      float diffuseTerm = dot(normalize(normal_world_space), normalize(directional_lighting_dir));
+                      float ONdiffuseTerm = lightingOrenNayerEval(normalize(directional_lighting_dir), normal_world_space, viewDir, u_Roughness);
+                      // -------------------------------------------------------------
+                      // point light lambert term
+                      // reconstruct world space position from screen space position and camera space depth
+
+                      // vec2 ndc_pos = vec2((2.0 * gl_FragCoord.x / u_Width) - 1.0, 
+                      // 					1.0 - (2.0 * gl_FragCoord.y / u_Height));
+                      // vec4 ndc_pos_vec4 = vec4(camera_space_depth * ndc_pos.x, camera_space_depth * ndc_pos.y, camera_space_depth, camera_space_depth);
+                      // vec4 camera_space_pos = inverse(u_Proj) * ndc_pos_vec4;
+                      // camera_space_pos.z = -camera_space_depth;
+                      // camera_space_pos.w = 1.0;
+                      // vec4 world_space_pos = inverse(u_View) * camera_space_pos;
+
+                      // float diffuseTerm = 0.0;
+
+                      // Lambert shading
+                      // diffuseTerm = dot(normalize(normal_world_space), normalize(point_light_pos - world_space_pos.xyz));
+
+                      float lightIntensity = ONdiffuseTerm + u_Ambient;   //Add a small float value to the color multiplier
+                                                //to simulate ambient lighting. This ensures that faces that are not
+                                                //lit by our point light are not completely black.
+
+
+
+                      // Lambert shading
+                      float shadow1 = clamp(shadow * u_CloudSize, 0.0, 1.0);
+                      float shadow2 = clamp(shadow1 + u_CloudEdge, 0.0, 1.0);
+                      vec3 color = (col * lightIntensity * shadow2 + specular * u_SandEdge * shadow1);
+                      color += u_Brightness * max(color - u_Level, vec3(0.0));
+                      color = mix(color, u_SandDiffuse.rgb, fogFactorExp(camera_space_depth));
+                      out_Col = vec4(color, 1.0);
+    }
 
 		// Water Material
-		if(materialType > 0.5){
+		else if(materialType > 100.0){
 			// // -------------------------------------------------------------
 			// // Pure Mirror
 			// // Fetch reflection color from texture
