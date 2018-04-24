@@ -614,6 +614,7 @@ class OpenGLRenderer {
       // if it's default interactive camera mode, we render it to screen buffer
       if(this.camMode == CAMERA_MODE.INTERACTIVE_MODE){
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        console.log('bind frame buffer to null');
       }
       // if it's in demo camera mode, we need further fade in/out post-process
       else{
@@ -623,6 +624,7 @@ class OpenGLRenderer {
     // if need post-process
     else{
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.originalBufferFromGBuffer);
+      console.log('bind frame buffer to original buffer');
     }
 
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
@@ -652,7 +654,6 @@ class OpenGLRenderer {
     this.deferredShader.setCloudSize(controls.CloudStrength); 
     this.deferredShader.setCloudEdge(controls.CloudLight); 
     this.deferredShader.setGeometryColor(vec4.fromValues(controls.LightColor[0]/255, controls.LightColor[1]/255, controls.LightColor[2]/255, 1.0));
-
 
     this.post32Passes[0].setAmount(controls.Aberration);
     this.post32Passes[0].setAmount2(controls.NoiseStrength);
@@ -767,7 +768,8 @@ class OpenGLRenderer {
 
       gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
       gl.disable(gl.DEPTH_TEST);
-      gl.enable(gl.BLEND);
+      // gl.enable(gl.BLEND);
+      gl.disable(gl.BLEND);
 
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -845,7 +847,8 @@ class OpenGLRenderer {
       gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
   
       gl.disable(gl.DEPTH_TEST);
-      gl.enable(gl.BLEND);
+      // gl.enable(gl.BLEND);
+      gl.disable(gl.BLEND);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   
       gl.activeTexture(gl.TEXTURE0);
