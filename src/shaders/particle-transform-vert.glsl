@@ -8,7 +8,7 @@
 #define ID_LOCATION 12
 
 #define HASHSCALE1 0.1031
-#define HASHSCALE3 vec3(.1031, .1030, .0973)
+#define HASHSCALE3 vec3(.10317512, .10304682, .09734537)
 
 precision highp float;
 precision highp int;
@@ -31,6 +31,14 @@ const int terrainOctaves = 6;
 
 uniform float u_Time;
 
+uniform float u_CloudEdge;
+uniform float u_CloudSize;
+uniform float u_CloudNoise;
+uniform float u_CloudSpeed;
+uniform float u_CloudSpeed2;
+
+uniform vec4 u_Color;
+
 layout(location = POSITION_LOCATION) in vec3 a_position;
 layout(location = VELOCITY_LOCATION) in vec3 a_velocity;
 layout(location = COLOR_LOCATION) in vec3 a_color;
@@ -45,6 +53,13 @@ out vec2 v_time; // vec.x spawn time, vec.y lifetime
 
 float rand(vec2 co){
     return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+}
+
+float hash11(float p)
+{
+	vec3 p3  = fract(vec3(p) * HASHSCALE1);
+    p3 += dot(p3, p3.yzx + 19.19);
+    return fract((p3.x + p3.y) * p3.z);
 }
 
 vec2 hash21(float p)
@@ -121,11 +136,71 @@ float FBM (vec2 st) {
     return value;
 }
 
+float FBM2 (vec2 st) {
+    // Initial values
+    vec2 newpos;
+    newpos = terrainNoiseSize * st;
+    newpos = newpos + vec2(3.0, 3.0);
+   
+    float value = 0.0;
+    float amplitude = 0.5;
+    float frequency = 0.;
+    float n;
+    
+    // Loop of octaves
+    for (int i = 0; i < terrainOctaves; i++) {
+      n = genNoise(newpos);
+      //n = pow(n, 4.0);
+      value += amplitude * n;
+      newpos = 2.0 * newpos;
+      amplitude *= 0.5;
+    }
+
+    return value;
+}
+
+vec2 rotate2(vec2 uv)
+{
+    uv = uv + genNoise(uv*0.2)*0.005;
+    float rot = 3.0;
+    float sinRot=sin(rot);
+    float cosRot=cos(rot);
+    mat2 rotMat = mat2(cosRot,-sinRot,sinRot,cosRot);
+    return uv * rotMat;
+}
+
+#define OCTAVES 6
+#define HEIGHT 50.0
+#define SIZE 4.0
+float FBM3 (in vec2 st, int octaves) {
+    // Initial values
+    vec2 newpos =st * SIZE;
+    float value = 0.0;
+    float amplitude = .5;
+    float frequency = 0.;
+    //
+    // Loop of octaves
+    vec2 temppos = newpos;
+    for (int i = 0; i < octaves; i++) {
+        value += amplitude * genNoise(temppos + u_Time * u_CloudSpeed2);
+        temppos *= 2.;
+        temppos = rotate2(temppos);
+        amplitude *= .5;
+    }
+    return value;
+}
+
 vec3 genParticlePosOnTerreain(){
     vec2 tmp = hash21(a_ID);
 
     float tmp1 = terrainSize * (tmp.x - 0.5);
     float tmp2 = terrainSize * (tmp.y - 0.5);
+    if(tmp1 < tmp2)
+    {
+        float temp = tmp1;
+        tmp1 = tmp2;
+        tmp2 = temp;
+    }
 
     float z = FBM(vec2(tmp1 / terrainSegement, tmp2 / terrainSegement)) * terrainDepth;
 
@@ -137,6 +212,24 @@ vec3 updateParticlePosOnTerrain(float newX, float newZ){
     float newHeight = FBM(vec2(newX/terrainSegement, -newZ/terrainSegement)) * terrainDepth;
 
     return vec3(newX, newHeight - 0.5 * terrainDepth + terrainYOffset, newZ);
+}
+
+vec3 ComputeCurl(vec3 pos)
+{
+    float x = pos.x;
+    float y = pos.z;
+    float eps = 1.0;
+    float n1, n2, a, b;
+    float size = 100.0;
+    float speed = 5.0;
+    n1 = FBM2((vec2(x, y + eps) + u_Time * speed) / size);
+    n2 = FBM2((vec2(x, y - eps) + u_Time * speed) / size);
+    a = (n1 - n2) / (2.0 * eps);
+    n1 = FBM2((vec2(x + eps, y) + u_Time * speed) / size);
+    n2 = FBM2((vec2(x - eps, y) + u_Time * speed) / size);
+    b = (n1 - n2) / (2.0 * eps);
+
+    return normalize(vec3(a, 0.0, -b));
 }
 
 
@@ -185,6 +278,8 @@ void main()
         if(a_time.x == 0.0){
             // setup initial position
             v_position = genParticlePosOnTerreain();
+            v_position = updateParticlePosOnTerrain(v_position.x, v_position.z);
+            v_position.y += 1.0;
 
             // velocity (random)
             // v_velocity = vec3(rand(vec2(a_ID, 0.0)) - 0.5, rand(vec2(a_ID, a_ID)) - 0.5, rand(vec2(2.0 * a_ID, 2.0 * a_ID)) - 0.5);
@@ -193,7 +288,9 @@ void main()
 
             // color
             // Set each invidual particle color here
-            v_color = ParticleCol;
+            float fs_Shadow = clamp(FBM3(v_position.xz / u_CloudNoise + u_CloudSpeed * u_Time, OCTAVES) - u_CloudSize, 0.0, 1.0);
+            fs_Shadow = pow(fs_Shadow, u_CloudEdge);
+            v_color = u_Color.xyz * fs_Shadow;
 
             // spawn time
             v_time.x = u_Time;
@@ -205,32 +302,45 @@ void main()
         // update particle information
         else{
             // update positin
-            float deltaTime = 0.01;
+            float deltaTime = 1.0;
 
             vec3 vel = vec3(0.0, 0.0, 0.0);
 
             // original random velcoity
-            vel = a_velocity; 
+            //float theta = FBM((vec2(a_position.x, a_position.z) + u_Time * 0.1) / 10.0) * TWO_PI;
 
-            vec3 tmpPos = a_position + deltaTime * vel;
+            vel = a_velocity + 1.0 * ComputeCurl(a_position);// + vec3(cos(theta), 0.0, sin(theta)) * 2.0; //
+
+            vec3 tmpPos = a_position + 0.25 * deltaTime * -vel;
+
+            // tmpPos.x = mod((tmpPos.x + 150.0), 300.0) - 150.0;
+            // tmpPos.z = mod((tmpPos.z + 150.0), 300.0) - 150.0;
 
             // calculate final position
             v_position = updateParticlePosOnTerrain(tmpPos.x, tmpPos.z);
+            v_position.y += 1.0;
                 
             // keep original random velcoity
             v_velocity = a_velocity; 
             
             // change each particle's color here
-            v_color = ParticleCol;
+            float fs_Shadow = clamp(FBM3(tmpPos.xz / u_CloudNoise + u_CloudSpeed * u_Time, OCTAVES) - u_CloudSize, 0.0, 1.0);
+            fs_Shadow = pow(fs_Shadow, u_CloudEdge);
+            v_color = u_Color.xyz * fs_Shadow;
 
             // we doesn't change life time / spawn here
             v_time = a_time;
 
-            // if out of boundary
+            //if out of boundary
             if(tmpPos.x < terrainBoundaryMin || tmpPos.x > terrainBoundaryMax
             || tmpPos.z < terrainBoundaryMin || tmpPos.z > terrainBoundaryMax){
                 v_time.x = 0.0;
             }
+
+            // if(temPosx == tmpPos.x || temPosz == tmpPos.z)
+            // {
+            //     v_time.x = 0.0;
+            // }
         }
 
         

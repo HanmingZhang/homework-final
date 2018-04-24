@@ -479,14 +479,19 @@ class OpenGLRenderer {
   }
 
 
-  updateTime(deltaTime: number, currentTime: number) {
+  updateTime(deltaTime: number, currentTime: number, controls: any) {
     this.deferredShader.setTime(currentTime);
     for (let pass of this.post8Passes) pass.setTime(currentTime);
     for (let pass of this.post32Passes) pass.setTime(currentTime);
     
     this.particle_transform.setTime(currentTime);    
     this.particle_draw.setTime(currentTime);
-
+    this.particle_transform.setCloudEdge(controls.ParticleEdge);
+    this.particle_transform.setCloudSize(controls.ParticleSize);
+    this.particle_transform.setCloudNoise(controls.CloudNoise);
+    this.particle_transform.setCloudSpeed(controls.CloudSpeed);
+    this.particle_transform.setCloudSpeed2(controls.CloudSpeed2);
+    this.particle_transform.setGeometryColor(vec4.fromValues(controls.ParticleColor[0]/255, controls.ParticleColor[1]/255, controls.ParticleColor[2]/255, 1.0))
 
     this.currentTime = currentTime;
   }
@@ -614,7 +619,7 @@ class OpenGLRenderer {
       // if it's default interactive camera mode, we render it to screen buffer
       if(this.camMode == CAMERA_MODE.INTERACTIVE_MODE){
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        console.log('bind frame buffer to null');
+        //console.log('bind frame buffer to null');
       }
       // if it's in demo camera mode, we need further fade in/out post-process
       else{
@@ -624,7 +629,7 @@ class OpenGLRenderer {
     // if need post-process
     else{
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.originalBufferFromGBuffer);
-      console.log('bind frame buffer to original buffer');
+      //console.log('bind frame buffer to original buffer');
     }
 
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
