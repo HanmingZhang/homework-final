@@ -132,12 +132,12 @@ class Camera {
         if(this.demoCamTime >= this.demoCamPosSequence[i].startTime &&
            this.demoCamTime < this.demoCamPosSequence[i].endTime){
             camStage = i;
-             break;
+            break;
          }
       }
 
       // lerp camera's position and target
-      if(camStage !== -1){
+      if(camStage != -1){
         let t = (this.demoCamTime - this.demoCamPosSequence[camStage].startTime) / (this.demoCamPosSequence[camStage].endTime - this.demoCamPosSequence[camStage].startTime);
         this.demoCamPos    = lerpCamPos(this.demoCamPosSequence[camStage].startPos,    this.demoCamPosSequence[camStage].endPos, t);
         this.demoCamTarget = lerpCamPos(this.demoCamTargetSequence[camStage].startPos, this.demoCamTargetSequence[camStage].endPos, t)
@@ -145,7 +145,6 @@ class Camera {
         // update view matrix
         mat4.lookAt(this.viewMatrix, this.demoCamPos , this.demoCamTarget, vec3.fromValues(0, 1, 0)); 
         vec3.subtract(this.forward, this.demoCamTarget, this.demoCamPos);
-        
       }
 
       // final fade in/out, we should back to general interactive camera
@@ -170,6 +169,7 @@ class Camera {
   // cinematic key framed camera paras
   updateDemoCamTime(deltaTime: number){
     this.demoCamTime += deltaTime;
+    // console.log(this.demoCamTime);
   }
 
   launchDemoCam(totalLength: number){

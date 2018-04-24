@@ -13,7 +13,7 @@ class Icosphere extends Drawable {
 
   constructor(center: vec3, public radius: number, public subdivisions: number, model: mat4) {
     super(); // Call the constructor of the super class. This is required.
-    this.center = vec4.fromValues(center[0], center[1], center[2], 1);
+    this.center = vec4.fromValues(center[0], center[1], center[2], 1.0);
 
     this.model = mat4.clone(model);
   }
