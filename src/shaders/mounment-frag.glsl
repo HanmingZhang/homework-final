@@ -71,6 +71,6 @@ void main() {
     vec3 finalcolor = mix(u_SandDiffuse.rgb, u_SandSpecular.rgb, depth) * Albedo;
 
     fragColor[0] = vec4(Normal_WS, fs_Pos.z);
-    fragColor[1] = vec4(fs_Pos.xyz, Specular.x);
-    fragColor[2] = vec4(finalcolor * Albedo, fs_Shadow);
+    fragColor[1] = vec4(fs_Pos.xyz, Specular.x * 3.0);
+    fragColor[2] = vec4(finalcolor * Albedo * 2.3, fs_Shadow);
 }

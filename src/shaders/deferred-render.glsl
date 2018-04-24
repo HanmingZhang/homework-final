@@ -36,6 +36,7 @@ uniform float u_SandEdge;
 uniform vec4 u_SandDiffuse;
 uniform vec4 u_SandSpecular;
 uniform float u_FogDensity;
+uniform vec4 u_Color;
 
 uniform float u_CloudSize;
 uniform float u_CloudEdge;
@@ -178,7 +179,7 @@ void main() {
   
   
     // Sand Material
-    if(materialType > -0.1 && materialType < 1.1){
+    if(materialType > -0.1 && materialType < 25.1){
       vec3 col = gb2.xyz;
 	    float shadow = gb2.w;
       vec3 pos = gb1.xyz;
@@ -228,8 +229,9 @@ void main() {
                       color = mix(color, u_SandDiffuse.rgb, fogFactorExp(camera_space_depth));
 
 					  vec3 x = max(vec3(0.0), color - vec3(0.004));
-	                  color = (x * (vec3(6.2) * x + vec3(0.5))) / (x * (vec3(6.2) * x + vec3(1.7)) + vec3(0.06));
-                      out_Col = vec4(color, 1.0);
+	                  vec3 color2 = (x * (vec3(6.2) * x + vec3(0.5))) / (x * (vec3(6.2) * x + vec3(1.7)) + vec3(0.06));
+					  vec3 color3 = mix(color, color2, 0.4);
+                      out_Col = vec4(color3 * u_Color.xyz, 1.0);
     }
 
 		// Water Material
