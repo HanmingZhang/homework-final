@@ -5,6 +5,18 @@ precision highp int;
 
 uniform float u_Luminance;
 
+uniform float u_Time;
+
+uniform float u_CloudEdge;
+uniform float u_CloudSize;
+uniform float u_CloudNoise;
+uniform float u_CloudSpeed;
+uniform float u_CloudSpeed2;
+uniform float u_Amount;
+uniform float u_Amount2;
+uniform float u_Amount3;
+uniform vec4 u_SandDiffuse;
+
 // uniform float mieDirectionalG;
 const float mieDirectionalG = 0.8;
 
@@ -28,6 +40,126 @@ in vec3 vBetaM;
 in float vSunE;
 
 out vec4 out_Col;
+
+//https://gist.github.com/yiwenl/3f804e80d0930e34a0b33359259b556c
+mat4 rotationMatrix(vec3 axis, float angle) {
+    axis = normalize(axis);
+    float s = sin(angle);
+    float c = cos(angle);
+    float oc = 1.0 - c;
+    
+    return mat4(oc * axis.x * axis.x + c,           oc * axis.x * axis.y - axis.z * s,  oc * axis.z * axis.x + axis.y * s,  0.0,
+                oc * axis.x * axis.y + axis.z * s,  oc * axis.y * axis.y + c,           oc * axis.y * axis.z - axis.x * s,  0.0,
+                oc * axis.z * axis.x - axis.y * s,  oc * axis.y * axis.z + axis.x * s,  oc * axis.z * axis.z + c,           0.0,
+                0.0,                                0.0,                                0.0,                                1.0);
+}
+
+vec3 rotate(vec3 v, vec3 axis, float angle) {
+	mat4 m = rotationMatrix(axis, angle);
+	return (m * vec4(v, 1.0)).xyz;
+}
+
+//https://www.shadertoy.com/view/4djSRW
+#define HASHSCALE1 .1031
+float hash(float p)
+{
+	vec3 p3  = fract(vec3(p) * HASHSCALE1);
+    p3 += dot(p3, p3.yzx + 19.19);
+    return fract((p3.x + p3.y) * p3.z);
+}
+float Noise3d(vec3 p)
+{
+    vec3 i = floor(p);
+	vec3 f = fract(p); 
+	//https://www.shadertoy.com/view/4dS3Wd
+	//For performance, compute the base input to a 1D hash from the integer part of the argument and the 
+    //incremental change to the 1D based on the 3D -> 1D wrapping
+	const vec3 step = vec3(110, 241, 171);
+    float n = dot(i, step);
+    vec3 u = f * f * (3.0 - 2.0 * f);
+    return mix(mix(mix( hash(n + dot(step, vec3(0, 0, 0))), hash(n + dot(step, vec3(1, 0, 0))), u.x),
+                   mix( hash(n + dot(step, vec3(0, 1, 0))), hash(n + dot(step, vec3(1, 1, 0))), u.x), u.y),
+               mix(mix( hash(n + dot(step, vec3(0, 0, 1))), hash(n + dot(step, vec3(1, 0, 1))), u.x),
+                   mix( hash(n + dot(step, vec3(0, 1, 1))), hash(n + dot(step, vec3(1, 1, 1))), u.x), u.y), u.z);
+}
+
+float FBM3(vec3 p, int Octaves)
+{
+	p *= .5;
+    float f = 0.0;
+	float amplitude = 0.5;
+	for(int i = 0;i < Octaves;i++)
+	{
+		f += amplitude * Noise3d(p);
+		p *= 3.0;
+		amplitude *= 0.5;
+	}
+    return f;
+}
+
+float hash12(vec2 p)
+{
+	vec3 p3  = fract(vec3(p.xyx) * HASHSCALE1);
+    p3 += dot(p3, p3.yzx + 19.19);
+    return fract((p3.x + p3.y) * p3.z);
+}
+
+// Based on Morgan McGuire @morgan3d
+// https://www.shadertoy.com/view/4dS3Wd
+float noise (in vec2 st) {
+    vec2 i = floor(st);
+    vec2 f = fract(st);
+
+    // Four corners in 2D of a tile
+    float a = hash12(i);
+    float b = hash12(i + vec2(1.0, 0.0));
+    float c = hash12(i + vec2(0.0, 1.0));
+    float d = hash12(i + vec2(1.0, 1.0));
+
+    vec2 u = f * f * (3.0 - 2.0 * f);
+
+    return mix(a, b, u.x) +
+            (c - a)* u.y * (1.0 - u.x) +
+            (d - b) * u.x * u.y;
+}
+
+vec2 rotate(vec2 v, float a) {
+	float s = sin(a);
+	float c = cos(a);
+	mat2 m = mat2(c, -s, s, c);
+	return m * v;
+}
+
+vec2 rotate2(vec2 uv)
+{
+    uv = uv + noise(uv*0.2)*0.005;
+    float rot = 3.0;
+    float sinRot=sin(rot);
+    float cosRot=cos(rot);
+    mat2 rotMat = mat2(cosRot,-sinRot,sinRot,cosRot);
+    return uv * rotMat;
+}
+
+#define OCTAVES 6
+#define HEIGHT 50.0
+#define SIZE 4.0
+float FBM (in vec2 st, int octaves) {
+    // Initial values
+    vec2 newpos =st * SIZE;
+    float value = 0.0;
+    float amplitude = .5;
+    float frequency = 0.;
+    //
+    // Loop of octaves
+    vec2 temppos = newpos;
+    for (int i = 0; i < octaves; i++) {
+        value += amplitude * noise(temppos + u_Time * u_CloudSpeed2);
+        temppos *= 2.;
+        temppos = rotate2(temppos);
+        amplitude *= .5;
+    }
+    return value;
+}
 
 float rayleighPhase( float cosTheta ) {
     return THREE_OVER_SIXTEENPI * ( 1.0 + pow( cosTheta, 2.0 ) );
@@ -76,5 +208,47 @@ void main() {
     vec3 color = curr * whiteScale;
     vec3 retColor = pow( color, vec3( 1.0 / ( 1.2 + ( 1.2 * vSunfade ) ) ) );
 
-    out_Col = vec4( retColor, 1.0 );
+    //float fs_Shadow = clamp(FBM(vec2(direction.z, direction.x) / u_CloudNoise + u_CloudSpeed * u_Time, OCTAVES) - u_CloudSize, 0.0, 1.0);
+    //fs_Shadow = pow(fs_Shadow, u_CloudEdge);
+    float fs_Shadow = clamp(FBM(vec2(direction.z, direction.x) / (pow(direction.y, u_Amount) * u_CloudNoise) + u_CloudSpeed * u_Time, OCTAVES) - u_CloudSize, 0.0, 1.0);
+    float fs_Shadow2 = pow(fs_Shadow, u_CloudEdge);
+    float fs_Shadow3 = clamp(pow(fs_Shadow, u_Amount3) - 0.2, 0.0, 1.0);//cloud color, 1: cloud center; 0: cloud edge
+
+    vec3 cloudcolor2 = mix(vec3(1.0, 1.0, 1.0), vec3(0.0, 0.0, 0.0), fs_Shadow3);
+
+    fs_Shadow2 *= smoothstep(0.0, u_Amount2, direction.y);//alpha, 1: cloud; 0: sky;
+
+    float transmittance = exp2( - fs_Shadow2 * 1.0 );
+    float exponent = 32.0 * transmittance; // some magic number
+    float intensity = ( exponent + 1.0 ) / 2.0; // cheap normalization
+    float cloudcolor = ( pow( max( 0.0, dot( direction, vSunDirection ) ), 1.0 ) * 1.0  + 0.1);
+    float alpha = clamp( 1.0 - transmittance, 0.0, 1.0 );
+
+    
+
+    // vec4 sum = vec4(0.0);
+    // vec2 cpos = vec2(direction.z, direction.x) / ((direction.y + u_Amount) * u_CloudNoise) + u_CloudSpeed * u_Time;
+    // for (int i=0; i<10; i++) // 120 layers
+    // {
+    //   if (sum.w>0.999) break;
+    //   cpos += u_CloudSpeed2;
+    //   float alpha = pow(FBM(cpos), u_CloudEdge); // fractal cloud density
+    //   vec3 localcolor = mix(vec3( 1.1, 1.05, 1.0 ), retColor * 0.1, alpha); // density color white->gray
+    //   alpha = (1.0-sum.w)*alpha; // alpha/density saturation (the more a cloud layer's density, the more the higher layers will be hidden)
+    //   sum += vec4(localcolor*alpha, alpha); // sum up weightened color
+    // }
+    vec3 cloudcolor3 = (retColor + cloudcolor * alpha);
+    cloudcolor2 = mix(cloudcolor3, cloudcolor2, cloudcolor);
+
+    float u_StarSpeed = 0.05;
+    float u_StarNoise = 350.0;
+    float u_StarSize = 0.8;
+    float u_StarEdge = 0.22;
+    float u_StarHide = 3.75;
+
+    float star = pow(clamp(FBM3(rotate(direction, vec3(1.0, 0.0, 1.0), u_StarSpeed * u_Time) * u_StarNoise, OCTAVES) - u_StarSize, 0.0, 1.0), u_StarEdge);
+    star = clamp(star, 0.0, 1.0);
+
+    out_Col = vec4( mix(retColor * u_SandDiffuse.xyz, cloudcolor2, fs_Shadow2) + vec3(star) * clamp((1.0 - fs_Shadow2 * u_StarHide), 0.0, 1.0), 1.0 );
+    //out_Col = vec4(vec3(1.0, 0.0, 0.0) * vec3(star) * clamp((1.0 - fs_Shadow2 * u_Amount), 0.0, 1.0) + vec3(fs_Shadow2), 1.0 );
 }

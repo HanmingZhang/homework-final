@@ -65,7 +65,7 @@ const controls = {
 
   // Bloom
   BloomOriWeight: 0.8,
-  BloomHighLightWeight: 2.5,
+  BloomHighLightWeight: 0.5, //2.5,
 
   // God ray
   Density: 0.91,
@@ -91,13 +91,14 @@ const controls = {
   Seed: 3.0,
 
   GridSize2: 2000,
+  GridSize3: 9000,
 
   // Material
   Roughness: 0.2,
   Shininess: 20.0,
   Ambient: 0.15,
-  Brightness: 7.0,
-  Level: 0.54,
+  Brightness: 3.1, //7.0,
+  Level: 0.6, //0.54,
   Specular: 1.0,
 
   SandEdge: 3.0,
@@ -105,18 +106,18 @@ const controls = {
   FlowEdge: 0.2,
   FlowSpeed: 0.05,
 
-  SandDiffuse: [255, 196, 155],//[237.0, 201.0, 175.0],
+  SandDiffuse: [227, 208, 147], //[255, 196, 155],//[237.0, 201.0, 175.0],
   SandSpecular: [255, 225, 155], //[155, 237, 255],//[255.0, 245.0, 231.0],
-  MounDiffuse: [32, 22, 20],
-  FogColor: [255, 192, 199],
+  MounDiffuse: [255, 255, 255],//[32, 22, 20],
+  FogColor: [25, 52, 82], //[255, 192, 199],
   FogDensity: 0.0005,
 
   MounEdge: 0.2,
 
   CloudEdge: 0.8,
   CloudSize: 0.35,
-  CloudSpeed: 0.02,
-  CloudSpeed2: 0.15,
+  CloudSpeed: 0.10,
+  CloudSpeed2: 0.20,
   CloudNoise: 300,
   CloudStrength: 2.4,
   CloudLight: 0.15,
@@ -132,7 +133,7 @@ const controls = {
 
   // Sky box paras
   distance: 400,
-  inclination: 0.49,
+  inclination: 0.487,
   azimuth: 0.205,
   luminance: 1.0,
   turbidity: 6.0,
@@ -140,6 +141,27 @@ const controls = {
   // Water
   Size: 0.8,
   DistortionScale: 3.7,
+
+  CloudEdge2: 0.66,
+  CloudSize2: 0.5, //0.45,
+  CloudSize3: 0.6, //0.8,
+  // CloudSpeed3: 0.02,
+  // CloudSpeed4: 0.15,
+  CloudNoise2: 1.3, //1.8,
+  CloudStrength2: 1.0,
+  CloudHorizon: 0.25,
+  CloudEdge3: 0.33,
+  SkyColor: [243, 162, 255],
+
+  LightColor: [251, 197, 255],
+
+  //postprocessing
+  Aberration: 0.06,
+  NoiseStrength: 10.0,
+  vignetteintensity: 21.0,
+  vignettepow: 0.1,
+
+  stop: false,
 };
 
 
@@ -170,6 +192,9 @@ var particle_transform : ShaderProgram;
 let obj0: string;
 let obj1: string;
 let obj2: string;
+let obj3: string;
+
+
 let scatter0: Scatter;
 let scatter1: Scatter;
 let scatter2: Scatter;
@@ -188,17 +213,21 @@ var timer = {
   startTime: 0.0,
   currentTime: 0.0,
   updateTime: function() {
-    var t = Date.now();
-    t = (t - timer.startTime) * 0.0005;
-    timer.deltaTime = t - timer.currentTime;
-    timer.currentTime = t;
+    if(!controls.stop)
+    {
+      var t = Date.now();
+      t = (t - timer.startTime) * 0.0005;
+      timer.deltaTime = t - timer.currentTime;
+      timer.currentTime = t;
+    }
   },
 }
 
 function loadOBJText() {
   obj0 = readTextFile('resources/obj/wahoo.obj');
-  obj1 = readTextFile('resources/obj/monument.obj');
+  obj1 = readTextFile('resources/obj/sword2.obj');
   obj2 = readTextFile('resources/obj/ribbon.obj');
+  obj3 = readTextFile('resources/obj/gear.obj');
 }
 
 
@@ -218,7 +247,8 @@ function loadScene() {
   quad.create();
 
   mat4.identity(modelMatrix);
-  grid = new Grid(controls.GridSize, controls.GridSize, controls.Division, controls.Division, modelMatrix);
+  mat4.fromTranslation(modelMatrix, vec3.fromValues(0, 1250, 0));
+  grid = new Grid(controls.GridSize3, controls.GridSize3, controls.Division, controls.Division, modelMatrix);
   grid.create();
 
   mat4.identity(modelMatrix);
@@ -249,7 +279,7 @@ function loadScene() {
   scatter2 = new Scatter(obj2, vec3.fromValues(0, 0, 0), modelMatrix, randomnums, terrain);
   scatter2.create2();
 
-  num = 1000.0;
+  num = 500.0;
   randomnums = new Array<number>();
   for(var j = 0; j < num; j++)
   {
@@ -275,9 +305,9 @@ function loadScene() {
   terrain_specular = new Texture('resources/textures/grass-spec.png');
   sand_normal = new Texture('resources/textures/12527-normal.jpg');
   sand_normal2 = new Texture('resources/textures/12528-normal.jpg');
-  moun_diffuse = new Texture('resources/textures/plaster-nk-01.png');
-  moun_normal = new Texture('resources/textures/plaster-nk-01-normal.png');
-  moun_specular = new Texture('resources/textures/plaster-nk-01-spec.png');
+  moun_diffuse = new Texture('resources/textures/Sting_Base_Color.png');
+  moun_normal = new Texture('resources/textures/Sting_Normal.png');
+  moun_specular = new Texture('resources/textures/Sting_Metallic.png');
 }
 
 
@@ -308,7 +338,6 @@ function main() {
   renderer = new OpenGLRenderer(canvas);
   renderer.setClearColor(0, 0, 0, 1);
   gl.enable(gl.DEPTH_TEST);
-
 
   // -------------------------------------------------------------------
   const standardDeferred = new ShaderProgram([
@@ -465,7 +494,8 @@ function main() {
   f3.add(controls, 'azimuth', 0, 1).step(0.001).onChange(setSkyboxSun);
   f3.add(controls, "luminance", 0, 1.1).step(0.1).onChange(setSkyBoxLuminance);
   f3.add(controls, "turbidity", 0, 25.0).step(0.5).onChange(setSkyBoxTurbidity);
-  f3.open();
+  f3.addColor(controls, 'SkyColor');
+  //f3.open();
 
 
   // Water paras
@@ -481,7 +511,7 @@ function main() {
   var f4 = gui.addFolder('Water paras');
   f4.add(controls, 'Size', 0.1, 10.0).step(0.1).onChange(setWaterSize);
   f4.add(controls, 'DistortionScale', 0.1, 8).step(0.1).onChange(setWaterDistortionScale);
-  f4.open();
+  //f4.open();
 
   // 
   var f3 = gui.addFolder('Deferred');
@@ -494,6 +524,7 @@ function main() {
   f3.add(controls, 'FogDensity', 0, 0.01).step(0.0001); 
   f3.addColor(controls, 'FogColor');
   f3.addColor(controls, 'SandSpecular');
+  f3.addColor(controls, 'LightColor');
   var f4 = gui.addFolder('Sand');
   f4.add(controls, 'SandEdge', 0, 10).step(0.01);
   f4.add(controls, 'SandSteep', -1, 1).step(0.01); 
@@ -503,22 +534,35 @@ function main() {
   var f5 = gui.addFolder('Mounments');
   f5.addColor(controls, 'MounDiffuse');
   f5.add(controls, 'MounEdge', 0, 1).step(0.01);
-  var f5 = gui.addFolder('Cloud');
+  var f5 = gui.addFolder('CloudShadow');
   f5.add(controls, 'CloudSize', -1, 1).step(0.01);
   f5.add(controls, 'CloudEdge', 0, 5).step(0.01);
-  f5.add(controls, 'CloudSpeed', 0, 1).step(0.01);
-  f5.add(controls, 'CloudSpeed2', 0, 1).step(0.01);
   f5.add(controls, 'CloudNoise', 0, 600).step(0.01);
   f5.add(controls, 'CloudStrength', 0, 10).step(0.01);
   f5.add(controls, 'CloudLight', 0, 1).step(0.01);
-  var f6 = gui.addFolder('Ribbon');
-  f6.addColor(controls, 'RibbonDiffuse');
-  f6.add(controls, 'RibbonEdge', -1, 1).step(0.01);
-  f6.add(controls, 'RibbonAmount', 0, 10).step(0.01);
-  f6.add(controls, 'RibbonAmount2', 0, 10).step(0.01);
-  f6.add(controls, 'RibbonAmount3', 0, 10).step(0.01);
-
-
+  var f6 = gui.addFolder('Cloud');
+  f6.add(controls, 'CloudSize2', -1, 1).step(0.01);
+  f6.add(controls, 'CloudSize3', 0, 5).step(0.01);
+  f6.add(controls, 'CloudEdge2', 0, 5).step(0.01);
+  f5.add(controls, 'CloudSpeed', 0, 1).step(0.01);
+  f5.add(controls, 'CloudSpeed2', 0, 1).step(0.01);
+  // f6.add(controls, 'CloudSpeed3', 0, 1).step(0.01);
+  // f6.add(controls, 'CloudSpeed4', 0, 1).step(0.01);
+  f6.add(controls, 'CloudNoise2', 0, 500).step(0.0001);
+  f6.add(controls, 'CloudHorizon', 0, 1).step(0.0001);
+  f6.add(controls, 'CloudEdge3', 0, 5).step(0.0001);
+  var f7 = gui.addFolder('Ribbon');
+  f7.addColor(controls, 'RibbonDiffuse');
+  f7.add(controls, 'RibbonEdge', -1, 1).step(0.01);
+  f7.add(controls, 'RibbonAmount', 0, 10).step(0.01);
+  f7.add(controls, 'RibbonAmount2', 0, 10).step(0.01);
+  f7.add(controls, 'RibbonAmount3', 0, 10).step(0.01);
+  var f8 = gui.addFolder('PostProcess');
+  f8.add(controls, 'Aberration', 0.0, 0.1).step(0.001);
+  f8.add(controls, 'NoiseStrength', 0.0, 32.0).step(0.01);
+  f8.add(controls, 'vignetteintensity', 0.0, 32.0).step(0.01);
+  f8.add(controls, 'vignettepow', 0.0, 1.0).step(0.01);
+  gui.add(controls, 'stop');
 
   // -------------------------------------------------------------------
   // TODO : Add camera fade effect keys here!
@@ -615,6 +659,8 @@ function main() {
     }
     
     setTerreainUniformVariables();
+
+    renderer.setSkyBoxCloud(controls, timer.currentTime);
 
     renderer.clear();
     renderer.clearGB();

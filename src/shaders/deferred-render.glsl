@@ -38,6 +38,7 @@ uniform float u_SandEdge;
 uniform vec4 u_SandDiffuse;
 uniform vec4 u_SandSpecular;
 uniform float u_FogDensity;
+uniform vec4 u_Color;
 
 uniform float u_CloudSize;
 uniform float u_CloudEdge;
@@ -192,9 +193,9 @@ void main() {
 		}
 		amountInLight /= 9.0;
 		amountInLight = clamp(amountInLight + 0.5, 0.0, 1.0);
-  
+
     	// Sand Material
-    	if(materialType > -0.1 && materialType < 1.1){
+    	if(materialType > -0.1 && materialType < 25.1){
       		vec3 col = gb2.xyz;
 	    	float shadow = gb2.w;
       		vec3 pos = gb1.xyz;

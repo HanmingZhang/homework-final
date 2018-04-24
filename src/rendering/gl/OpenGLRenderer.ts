@@ -303,6 +303,19 @@ class OpenGLRenderer {
     this.skyBoxShader.setSkyboxTurbidity(t);
   }
 
+  setSkyBoxCloud(controls: any, currentTime: number){
+    this.skyBoxShader.setCloudEdge(controls.CloudEdge2);
+    this.skyBoxShader.setCloudSize(controls.CloudSize2);
+    this.skyBoxShader.setCloudNoise(controls.CloudNoise2);
+    this.skyBoxShader.setCloudSpeed(controls.CloudSpeed);
+    this.skyBoxShader.setCloudSpeed2(controls.CloudSpeed2);
+    this.skyBoxShader.setAmount(controls.CloudSize3);
+    this.skyBoxShader.setAmount2(controls.CloudHorizon);
+    this.skyBoxShader.setAmount3(controls.CloudEdge3);
+    this.skyBoxShader.setTime(currentTime);
+    this.skyBoxShader.setSandDiffuse(vec4.fromValues(controls.SkyColor[0]/255, controls.SkyColor[1]/255, controls.SkyColor[2]/255, 1.0));
+  }
+
   setWaterSunDirection(dir: vec3){
     this.deferredShader.setWaterSunDirection(dir);
   }
@@ -638,8 +651,16 @@ class OpenGLRenderer {
     this.deferredShader.setFogDensity(controls.FogDensity); 
     this.deferredShader.setCloudSize(controls.CloudStrength); 
     this.deferredShader.setCloudEdge(controls.CloudLight); 
+    this.deferredShader.setGeometryColor(vec4.fromValues(controls.LightColor[0]/255, controls.LightColor[1]/255, controls.LightColor[2]/255, 1.0));
+
+
+    this.post32Passes[0].setAmount(controls.Aberration);
+    this.post32Passes[0].setAmount2(controls.NoiseStrength);
+    this.post32Passes[0].setAmount3(controls.vignetteintensity);
+    this.post32Passes[0].setAmbient(controls.vignettepow);
 
     this.deferredShader.setLightViewProjMatrix(this.lightViewProjMatrix);
+
 
     let gbTargetsLen = this.gbTargets.length;
     

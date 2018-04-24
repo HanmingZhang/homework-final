@@ -46,7 +46,7 @@ void main() {
 
     // fragColor[0] : RGBA 32f buffer
     //  Water material
-    if(u_MaterialType > 0.5){
+    if(u_MaterialType > 100.0){
        fragColor[0] = vec4(fs_Pos_World.xyz, fs_Pos.z);
     }
     else{
@@ -59,7 +59,7 @@ void main() {
     fragColor[1] = vec4(shadowPos.xyz, u_MaterialType);
 
     //  Water material
-    if(u_MaterialType > 0.5){
+    if(u_MaterialType > 100.0){
         fragColor[2] = vec4(vReflectionMapTexCoord, 1.0);
     }
     else{
