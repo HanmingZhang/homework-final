@@ -20,6 +20,8 @@ uniform float u_Width;
 uniform mat4 u_View;
 uniform mat4 u_Proj;
 
+uniform mat4 u_lightViewProj;
+
 uniform vec3 u_Eye;
 uniform vec3 u_SunDirection;
 
@@ -48,14 +50,20 @@ uniform sampler2D u_shadowTexture;
 
 uniform sampler2D u_BgTexutre;
 
-
 uniform sampler2D u_waterReflectionTexutre;
 uniform sampler2D u_waterNoramlTexture;
+
+uniform sampler2D u_ParticleTexture;
+
 uniform float u_waterSize;
 uniform float u_waterDistortionScale;
 
 const float shadowDepthTextureSize = 1024.0; // This one should be consistent with that in OpenGLRenderer.ts
 
+const mat4 texUnitConverter = mat4(0.5, 0.0, 0.0, 0.0, 
+                                   0.0, 0.5, 0.0, 0.0, 
+                                   0.0, 0.0, 0.5, 0.0, 
+                                   0.5, 0.5, 0.5, 1.0);
 
 // SHOULD BE CONSISTENT WITH SUN POS in main.ts
 // directional light
@@ -135,10 +143,11 @@ void main() {
 
 	float camera_space_depth = -gb0.w;
 
-
 	// actually, we can know whether this fragment is 
 	// overlapped by a mesh by checking its depth
 	bool isPixelOverlap = (camera_space_depth > EPS);
+
+	vec3 final_col;
 
 	if(isPixelOverlap){
 
@@ -149,10 +158,18 @@ void main() {
 
 		// -------------------------------------------------------------
 		// Shadow map portion
-		vec3 shadowPos = gb1.xyz;
+		vec3 shadowPos;
+		if(materialType > -0.1 && materialType < 1.1){
+			vec4 tmp = texUnitConverter * u_lightViewProj * inverse(u_View) * vec4(gb1.xyz, 1.0);
+			shadowPos = tmp.xyz;
+		}
+		else{
+			shadowPos = gb1.xyz;
+		}
 
+		 
 		vec3 fragmentDepth = shadowPos;
-		float shadowAcneRemover = 0.000005;
+		float shadowAcneRemover = 0.000001;
 		fragmentDepth.z -= shadowAcneRemover;
 
 		float texelSize = 1.0 / shadowDepthTextureSize;
@@ -176,63 +193,62 @@ void main() {
 		}
 		amountInLight /= 9.0;
 		amountInLight = clamp(amountInLight + 0.5, 0.0, 1.0);
-  
-  
-    // Sand Material
-    if(materialType > -0.1 && materialType < 25.1){
-      vec3 col = gb2.xyz;
-	    float shadow = gb2.w;
-      vec3 pos = gb1.xyz;
-	    float spe = materialType;
-	    // Calculate the diffuse term for Lambert shading
-	    vec3 normal_world_space = texture(u_gb0, fs_UV).xyz;
 
-    	//vec3 sandcolor = vec3(237.0/255.0, 201.0/255.0, 175.0/255.0);
-                      //specular, blin_phong
-                      //vec3 lightColor = vec3(255.0/255.0, 245.0/255.0, 231.0/255.0);
-                      vec3 viewDir = normalize(u_CameraPos.xyz - pos);
-                      vec3 halfwayDir = normalize(normalize(directional_lighting_dir) + viewDir);
-                      float blin = pow(max(dot(normal_world_space, halfwayDir), 0.0), u_Shininess);
-                      vec3 specular = spe * u_SandSpecular.xyz * blin;
-                      // -------------------------------------------------------------
-                      // directional light lambert term
-                      float diffuseTerm = dot(normalize(normal_world_space), normalize(directional_lighting_dir));
-                      float ONdiffuseTerm = lightingOrenNayerEval(normalize(directional_lighting_dir), normal_world_space, viewDir, u_Roughness);
-                      // -------------------------------------------------------------
-                      // point light lambert term
-                      // reconstruct world space position from screen space position and camera space depth
+    	// Sand Material
+    	if(materialType > -0.1 && materialType < 25.1){
+      		vec3 col = gb2.xyz;
+	    	float shadow = gb2.w;
+      		vec3 pos = gb1.xyz;
+	    	float spe = materialType;
+	    	// Calculate the diffuse term for Lambert shading
+	    	vec3 normal_world_space = texture(u_gb0, fs_UV).xyz;
 
-                      // vec2 ndc_pos = vec2((2.0 * gl_FragCoord.x / u_Width) - 1.0, 
-                      // 					1.0 - (2.0 * gl_FragCoord.y / u_Height));
-                      // vec4 ndc_pos_vec4 = vec4(camera_space_depth * ndc_pos.x, camera_space_depth * ndc_pos.y, camera_space_depth, camera_space_depth);
-                      // vec4 camera_space_pos = inverse(u_Proj) * ndc_pos_vec4;
-                      // camera_space_pos.z = -camera_space_depth;
-                      // camera_space_pos.w = 1.0;
-                      // vec4 world_space_pos = inverse(u_View) * camera_space_pos;
+			//vec3 sandcolor = vec3(237.0/255.0, 201.0/255.0, 175.0/255.0);
+			//specular, blin_phong
+			//vec3 lightColor = vec3(255.0/255.0, 245.0/255.0, 231.0/255.0);
+			vec3 viewDir = normalize(u_CameraPos.xyz - pos);
+			vec3 halfwayDir = normalize(normalize(directional_lighting_dir) + viewDir);
+			float blin = pow(max(dot(normal_world_space, halfwayDir), 0.0), u_Shininess);
+			vec3 specular = spe * u_SandSpecular.xyz * blin;
+			// -------------------------------------------------------------
+			// directional light lambert term
+			float diffuseTerm = dot(normalize(normal_world_space), normalize(directional_lighting_dir));
+			float ONdiffuseTerm = lightingOrenNayerEval(normalize(directional_lighting_dir), normal_world_space, viewDir, u_Roughness);
+			// -------------------------------------------------------------
+			// point light lambert term
+			// reconstruct world space position from screen space position and camera space depth
 
-                      // float diffuseTerm = 0.0;
+			// vec2 ndc_pos = vec2((2.0 * gl_FragCoord.x / u_Width) - 1.0, 
+			// 					1.0 - (2.0 * gl_FragCoord.y / u_Height));
+			// vec4 ndc_pos_vec4 = vec4(camera_space_depth * ndc_pos.x, camera_space_depth * ndc_pos.y, camera_space_depth, camera_space_depth);
+			// vec4 camera_space_pos = inverse(u_Proj) * ndc_pos_vec4;
+			// camera_space_pos.z = -camera_space_depth;
+			// camera_space_pos.w = 1.0;
+			// vec4 world_space_pos = inverse(u_View) * camera_space_pos;
 
-                      // Lambert shading
-                      // diffuseTerm = dot(normalize(normal_world_space), normalize(point_light_pos - world_space_pos.xyz));
+			// float diffuseTerm = 0.0;
 
-                      float lightIntensity = ONdiffuseTerm + u_Ambient;   //Add a small float value to the color multiplier
-                                                //to simulate ambient lighting. This ensures that faces that are not
-                                                //lit by our point light are not completely black.
+			// Lambert shading
+			// diffuseTerm = dot(normalize(normal_world_space), normalize(point_light_pos - world_space_pos.xyz));
 
+			float lightIntensity = ONdiffuseTerm + u_Ambient;   //Add a small float value to the color multiplier
+									//to simulate ambient lighting. This ensures that faces that are not
+									//lit by our point light are not completely black.
 
 
-                      // Lambert shading
-                      float shadow1 = clamp(shadow * u_CloudSize, 0.0, 1.0);
-                      float shadow2 = clamp(shadow1 + u_CloudEdge, 0.0, 1.0);
-                      vec3 color = (col * lightIntensity * shadow2 + specular * u_SandEdge * shadow1);
-                      color += u_Brightness * max(color - u_Level, vec3(0.0));
-                      color = mix(color, u_SandDiffuse.rgb, fogFactorExp(camera_space_depth));
 
-					  vec3 x = max(vec3(0.0), color - vec3(0.004));
-	                  vec3 color2 = (x * (vec3(6.2) * x + vec3(0.5))) / (x * (vec3(6.2) * x + vec3(1.7)) + vec3(0.06));
-					  vec3 color3 = mix(color, color2, 0.4);
-                      out_Col = vec4(color3 * u_Color.xyz, 1.0);
-    }
+			// Lambert shading
+			float shadow1 = clamp(shadow * u_CloudSize, 0.0, 1.0);
+			float shadow2 = clamp(shadow1 + u_CloudEdge, 0.0, 1.0);
+			vec3 color = (col * lightIntensity * shadow2 + specular * u_SandEdge * shadow1);
+			color += u_Brightness * max(color - u_Level, vec3(0.0));
+			color = mix(color, u_SandDiffuse.rgb, fogFactorExp(camera_space_depth));
+
+			vec3 x = max(vec3(0.0), color - vec3(0.004));
+			color = (x * (vec3(6.2) * x + vec3(0.5))) / (x * (vec3(6.2) * x + vec3(1.7)) + vec3(0.06));
+			// out_Col = vec4(color * amountInLight, 1.0);
+			final_col = color * amountInLight;
+    	}
 
 		// Water Material
 		else if(materialType > 100.0){
@@ -269,8 +285,10 @@ void main() {
 
 			vec3 albedo = mix((sunColor * diffuseLight * 0.3 + scatter) * amountInLight, (vec3(0.1) + reflectionSample * 0.9 + reflectionSample * specularLight), reflectance);
 			
-			out_Col = vec4(albedo, 1.0);
+			// out_Col = vec4(albedo, 1.0);
+			final_col = albedo;
 		}
+
 		// Lambert Shading
 		else{
 			// Calculate the diffuse term for Lambert shading
@@ -306,17 +324,36 @@ void main() {
 			// -------------------------------------------------------------
 			// Lambert shading
 			vec3 col = gb2.xyz; // albedo color fetched from texture
-			out_Col = vec4(lightIntensity * amountInLight * col, 1.0);
+			// out_Col = vec4(lightIntensity * amountInLight * col, 1.0);
+			final_col = lightIntensity * amountInLight * col;
 		}
 	}
 
 	// background
 	else{
 		// fetch Sky box color from texture
-		out_Col = texture(u_BgTexutre, fs_UV);
+		// out_Col = texture(u_BgTexutre, fs_UV);
+		final_col = texture(u_BgTexutre, fs_UV).rgb;
 	}
 
 
+
+	// Handle particles
+	vec4 particle_info = texture(u_ParticleTexture, fs_UV);
+	float particle_camera_space_depth = -particle_info.w;
+
+	// know whether this fragment is 
+	// overlapped by a mesh by checking its depth
+	bool isPixelOverlapParticle = (particle_camera_space_depth > EPS);
+
+	// check whether this particle is occuluded by scene geometry
+	bool isParticleNotOcculuded = (!isPixelOverlap) || (isPixelOverlap && (particle_camera_space_depth < camera_space_depth));
+	
+	if(isPixelOverlapParticle && isParticleNotOcculuded){
+		final_col += particle_info.rgb;
+	}
+
+	out_Col = vec4(final_col, 1.0);
 
 
 	// -------------------------------------------------------------
@@ -324,6 +361,7 @@ void main() {
 	// float near = 0.1;
 	// float far  = 100.0;
 	// out_Col = vec4(vec3((-texture(u_gb0, fs_UV).w - near) / far), 1.0);
+
 
 	// -------------------------------------------------------------
 	// world space normal debug

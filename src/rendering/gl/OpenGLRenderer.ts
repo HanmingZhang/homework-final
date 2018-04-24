@@ -1,4 +1,4 @@
-import {mat4, vec4, vec3, vec2} from 'gl-matrix';
+import {mat3, mat4, vec4, vec3, vec2} from 'gl-matrix';
 import Drawable from './Drawable';
 import Camera from '../../Camera';
 import {gl} from '../../globals';
@@ -11,11 +11,30 @@ import Texture from '../../rendering/gl/Texture';
 import {CAMERA_MODE} from '../../main';
 import Water from '../../material/Water';
 import Plane from '../../material/Plane';
+import Particle from '../../particles/Particle';
+
+// Particle System parameters
+// These consts should be consistent with those in Particle.ts & particle-transform-vert.glsl
+const POSITION_LOCATION = 8;
+const VELOCITY_LOCATION = 9;
+const COLOR_LOCATION = 10;
+const TIME_LOCATION = 11;
+const ID_LOCATION = 12;
+
+const NUM_LOCATIONS = 5;
+
+var currentSourceIdx = 0; // ping-pong buffer index
+
+const ParticleNum = 100000;
 
 const shadowDepthTextureSize = 1024; // This one should be consistent with that in deferred-render.glsl
 
 // Sky box/cube
 let SkyBox: Cube;
+
+// Particles
+let particle: Particle;
+let particle_square: Square; // this is billboard square
 
 class OpenGLRenderer {
   gBuffer: WebGLFramebuffer; // framebuffer for deferred rendering
@@ -92,6 +111,24 @@ class OpenGLRenderer {
   fadePass : PostProcess = new PostProcess(
     new Shader(gl.FRAGMENT_SHADER, require('../../shaders/fade-frag.glsl'))
     );
+
+
+  // ----------------------------------------------------------------
+  // setup particle shader with transform feedback(actually, fragment shader is not used here)
+  particle_transform = new ShaderProgram([
+    new Shader(gl.VERTEX_SHADER, require('../../shaders/particle-transform-vert.glsl')),
+    new Shader(gl.FRAGMENT_SHADER, require('../..//shaders/particle-transform-frag.glsl')),
+    ],
+    true,
+    ['v_position', 'v_velocity', 'v_color', 'v_time']
+  );
+
+  // setup particle draw shaders
+  particle_draw = new ShaderProgram([
+    new Shader(gl.VERTEX_SHADER, require('../../shaders/particle-draw-vert.glsl')),
+    new Shader(gl.FRAGMENT_SHADER, require('../../shaders/particle-draw-frag.glsl')),
+  ]);
+
 
   add8BitPass(passesList: PostProcess[], pass: PostProcess) {
     // this.post8Passes.push(pass);
@@ -182,6 +219,9 @@ class OpenGLRenderer {
 
     // setup sky box
     this.initSkyBox();
+
+    // setup partcles
+    this.initParticle();
   }
 
   initSkyBox(){
@@ -196,9 +236,25 @@ class OpenGLRenderer {
       new Shader(gl.VERTEX_SHADER, require('../../shaders/skybox-vert.glsl')),
       new Shader(gl.FRAGMENT_SHADER, require('../../shaders/skybox-frag.glsl')),
     ]);
-    this.skyBoxShader.setGeometryColor(vec4.fromValues(0.0, 0.8, 0.0, 1.0));
   }
 
+  initParticle(){
+    particle = new Particle(ParticleNum);
+    particle.create();
+    
+    let identityModel = mat4.create();
+    mat4.identity(identityModel);
+  
+    // size of particle
+    let particleSizeScalar = 1.5;
+
+    let billboardModelMatrix = mat4.create();
+    mat4.scale(billboardModelMatrix, identityModel, vec3.fromValues(0.1 * particleSizeScalar, 0.1 * particleSizeScalar, 1.0));
+    this.particle_draw.setParticleSize(0.5 * particleSizeScalar);
+
+    particle_square = new Square(vec3.fromValues(0.0, 0.0, 0.0), billboardModelMatrix);
+    particle_square.create();
+  }
 
   // --------------------------------                          
   setBloomCombineParas(w1: number, w2: number){
@@ -286,7 +342,7 @@ class OpenGLRenderer {
     this.deferredShader.setHeight(height);
 
     // set Bloom passes size
-    this.post32PassesBloom[1].setWidth(width); //horizontal blur pass
+    this.post32PassesBloom[1].setWidth(width);   //horizontal blur pass
     this.post32PassesBloom[2].setHeight(height); //vertical blur pass
 
 
@@ -305,16 +361,8 @@ class OpenGLRenderer {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-      // Attention! 
-      // we only make the gbTargets[0] gbTargets[1] RGBA 32bits buffer!
-      // if (i <= 1) {
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, gl.drawingBufferWidth, gl.drawingBufferHeight, 0, gl.RGBA, gl.FLOAT, null);
-      // }
-      // the rest gbTargets are RGBA 8 bits!
-      // else {
-      //    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.drawingBufferWidth, gl.drawingBufferHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-      // }
-
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, gl.drawingBufferWidth, gl.drawingBufferHeight, 0, gl.RGBA, gl.FLOAT, null);
+      
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + i, gl.TEXTURE_2D, this.gbTargets[i], 0);
     }
 
@@ -436,6 +484,10 @@ class OpenGLRenderer {
     for (let pass of this.post8Passes) pass.setTime(currentTime);
     for (let pass of this.post32Passes) pass.setTime(currentTime);
     
+    this.particle_transform.setTime(currentTime);    
+    this.particle_draw.setTime(currentTime);
+
+
     this.currentTime = currentTime;
   }
 
@@ -478,8 +530,9 @@ class OpenGLRenderer {
     }
 
     let i = 0 // control which drawable use textures and which use uniform color
+    let textureThreshold = 0;
     for (let drawable of drawables) {
-      if(i <= 1){
+      if(i < textureThreshold){
         gbProg.setEnableTexutre(true);
       }
       else{
@@ -505,7 +558,6 @@ class OpenGLRenderer {
     mat4.multiply(reflectViewProj, proj, water.reflectedView);
 
     // -----------------------------------------------------
-
     gbProg.setWorldReflectionViewProjection(reflectViewProj);
     gbProg.draw(water.square)
 
@@ -534,13 +586,36 @@ class OpenGLRenderer {
   }
 
 
+  processParticles(camera: Camera){
+    // 1. Transform Particles
+    this.transformParticles(camera, this.particle_transform, [
+      particle
+    ]);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[1]);
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    gl.disable(gl.DEPTH_TEST);
+    // gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    
+    // 2. Render
+    this.renderParticles(camera, this.particle_draw, particle_square, [particle]);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+
   renderFromGBuffer(camera: Camera, water: Water, postProcessType: number, controls: any) {
+    
     // if no need to post-process
     if(postProcessType == -1){
+      // if it's default interactive camera mode, we render it to screen buffer
       if(this.camMode == CAMERA_MODE.INTERACTIVE_MODE){
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       }
-      // If it's in demo camera mode, we need further fade in/out post-process
+      // if it's in demo camera mode, we need further fade in/out post-process
       else{
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.post8Buffers[0]);
       }
@@ -551,11 +626,10 @@ class OpenGLRenderer {
     }
 
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
     gl.disable(gl.DEPTH_TEST);
-    gl.enable(gl.BLEND);
+    gl.disable(gl.BLEND);
+
 
     let view = camera.viewMatrix;
     let proj = camera.projectionMatrix;
@@ -579,10 +653,14 @@ class OpenGLRenderer {
     this.deferredShader.setCloudEdge(controls.CloudLight); 
     this.deferredShader.setGeometryColor(vec4.fromValues(controls.LightColor[0]/255, controls.LightColor[1]/255, controls.LightColor[2]/255, 1.0));
 
+
     this.post32Passes[0].setAmount(controls.Aberration);
     this.post32Passes[0].setAmount2(controls.NoiseStrength);
     this.post32Passes[0].setAmount3(controls.vignetteintensity);
     this.post32Passes[0].setAmbient(controls.vignettepow);
+
+    this.deferredShader.setLightViewProjMatrix(this.lightViewProjMatrix);
+
 
     let gbTargetsLen = this.gbTargets.length;
     
@@ -604,6 +682,7 @@ class OpenGLRenderer {
     gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[0]);
     this.deferredShader.setBgTexture(gbTargetsLen + 1);
     
+    // set up water
     if(water !== null){
       if(this.camMode == CAMERA_MODE.INTERACTIVE_MODE){
         this.deferredShader.setWaterEyePos(camera.controls.eye);
@@ -620,6 +699,13 @@ class OpenGLRenderer {
       // water normal texture
       this.deferredShader.setupTexUnits(["u_waterNoramlTexture"]);
       this.deferredShader.bindTexToUnit("u_waterNoramlTexture", water.normal_tex, gbTargetsLen + 3);
+    }
+
+    // particle texture
+    if(particle !== null){
+      gl.activeTexture(gl.TEXTURE0 + gbTargetsLen + 4);
+      gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[1]);
+      this.deferredShader.setParticleTexture(gbTargetsLen + 4);
     }
 
     this.deferredShader.draw();
@@ -661,7 +747,6 @@ class OpenGLRenderer {
     // Single post process pipeline 
     // for Default, Bloom, God ray post porcesses
     for (i = 0; i < thisPost32Passes.length; i++){
-
       // If this is the last post process pass
       if(i == thisPost32Passes.length - 1){
         if(this.camMode == CAMERA_MODE.INTERACTIVE_MODE){
@@ -890,7 +975,7 @@ class OpenGLRenderer {
 
     // create light "camera"
     let lightProjectionMatrix = mat4.create();
-    let orthoCamWidth = 50.0; // TODO : adjust this value to change shadow size
+    let orthoCamWidth = 200.0; //50.0; // TODO : adjust this value to change shadow size
     let near = 0.1;
     let far = 5000.0;
     mat4.ortho(lightProjectionMatrix, -orthoCamWidth, orthoCamWidth , -orthoCamWidth / aspectRatio, orthoCamWidth / aspectRatio, near, far);
@@ -954,7 +1039,7 @@ class OpenGLRenderer {
   }
 
 
-  renderWaterReflectionTexture(water: Water, camera: Camera, drawables: Array<Drawable>, tex0: Texture){
+  renderWaterReflectionTexture(water: Water, camera: Camera, drawables: Array<Drawable> = [], textures: Array<Texture> = []){
 
     // draw refection of water surface to framebuffer
     gl.bindFramebuffer(gl.FRAMEBUFFER, water.reflectRTTFramebuffer);
@@ -971,22 +1056,130 @@ class OpenGLRenderer {
       this.skyBoxShader.draw(SkyBox);
     }
 
-    // TODO : further refine this lambertShader!
-    // set uniforms for shader  
-    this.lambertShader.setupTexUnits(["tex_Color"]);
-    this.lambertShader.bindTexToUnit("tex_Color", tex0, 0);
-    this.lambertShader.setViewMatrix(water.reflectedView); // water.refectedView is set in renderToGubuffer   
-    this.lambertShader.setProjMatrix(proj);
-    this.lambertShader.setGeometryColor(vec4.fromValues(0.2, 0.2, 0.2, 1.0));
-
-    for (let drawable of drawables) {
-      // set up model matrix
-      this.lambertShader.setModelMatrix(drawable.model);
-      this.lambertShader.draw(drawable);
+    // Use lambert shader to render reflection so far
+    if(textures.length !== 0){
+      // TODO: set uniforms/textures for shader  
+      this.lambertShader.setupTexUnits(["tex_Color"]);
+      this.lambertShader.bindTexToUnit("tex_Color", textures[0], 0);
     }
-    
+
+    if(drawables.length !== 0){
+      this.lambertShader.setViewMatrix(water.reflectedView); // water.refectedView is set in renderToGubuffer   
+      this.lambertShader.setProjMatrix(proj);
+      this.lambertShader.setGeometryColor(vec4.fromValues(0.2, 0.2, 0.2, 1.0));
+
+      for (let drawable of drawables) {
+        // set up model matrix
+        this.lambertShader.setModelMatrix(drawable.model);
+        this.lambertShader.draw(drawable);
+      }
+    }
+
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
+
+
+  transformParticles(camera: Camera, prog: ShaderProgram, particles: Array<Particle>){
+    if(particles.length !== 0){
+      let viewProj = mat4.create();
+
+      mat4.multiply(viewProj, camera.projectionMatrix, camera.viewMatrix);
+
+      let model = mat4.create();
+      mat4.identity(model);
+      prog.setModelMatrix(model);
+      prog.setViewProjMatrix(viewProj);
+
+      prog.use();
+
+      var destinationIdx = (currentSourceIdx + 1) % 2;
+
+      for(let i = 0; i < particles.length; i++){
+        // Toggle source and destination VBO
+        var sourceVAO = particles[i].getVAO(currentSourceIdx);
+        var destinationTransformFeedback = particles[i].getTransformFeedbacks(destinationIdx);
+
+        gl.bindVertexArray(sourceVAO);
+        gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, destinationTransformFeedback);
+
+        // NOTE: The following four lines shouldn't be necessary, but are required to work in ANGLE
+        // due to a bug in its handling of transform feedback objects.
+        // https://bugs.chromium.org/p/angleproject/issues/detail?id=2051
+        var vbo = particles[i].getVBO(destinationIdx);
+        gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, vbo[POSITION_LOCATION]);
+        gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 1, vbo[VELOCITY_LOCATION]);
+        gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 2, vbo[COLOR_LOCATION]);
+        gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 3, vbo[TIME_LOCATION]);
+        
+
+        // -------------------------------------------------------------
+        // -------------- this portion is different --------------------
+        // -------------------------------------------------------------
+
+        // Attributes per-vertex when doing transform feedback needs setting to 0 when doing transform feedback
+        gl.vertexAttribDivisor(POSITION_LOCATION, 0);
+        gl.vertexAttribDivisor(VELOCITY_LOCATION, 0);
+        gl.vertexAttribDivisor(COLOR_LOCATION, 0);
+        gl.vertexAttribDivisor(TIME_LOCATION, 0);
+        
+        // Turn off rasterization - we are not drawing
+        gl.enable(gl.RASTERIZER_DISCARD);
+
+        // Update position and rotation using transform feedback
+        gl.beginTransformFeedback(gl.POINTS);
+        gl.drawArrays(gl.POINTS, 0, particles[i].numParticles);
+        gl.endTransformFeedback();
+
+        // Restore state
+        gl.disable(gl.RASTERIZER_DISCARD);
+        gl.useProgram(null);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
+        // -------------------------------------------------------------
+
+        // // Draw particles using transform feedback (pure dots)
+        // gl.beginTransformFeedback(gl.POINTS);
+        // gl.drawArrays(gl.POINTS, 0, particles[i].numParticles);
+        // gl.endTransformFeedback();
+      }
+
+      // Ping pong the buffers
+      currentSourceIdx = (currentSourceIdx + 1) % 2;
+    }
+  }
+
+  renderParticles(camera: Camera, prog: ShaderProgram, drawable: Drawable, particles: Array<Particle>) {
+    if(particles.length !== 0){
+      let viewProj = mat4.create();
+
+      // Each column of the axes matrix is an axis. Right, Up, Forward.
+      let axes = mat3.fromValues(camera.right[0], camera.right[1], camera.right[2],
+                                 camera.up[0], camera.up[1], camera.up[2],
+                                 camera.forward[0], camera.forward[1], camera.forward[2]);
+
+
+      mat4.multiply(viewProj, camera.projectionMatrix, camera.viewMatrix);
+      prog.setModelMatrix(drawable.model);
+      prog.setViewMatrix(camera.viewMatrix);
+      prog.setViewProjMatrix(viewProj);
+      prog.setCameraAxes(axes);
+      
+
+      for(let i = 0; i < particles.length; i++){
+        var sourceVAO = particles[i].getVAO(currentSourceIdx);
+        gl.bindVertexArray(sourceVAO);
+
+        // Attributes per-instance when drawing sets back to 1 when drawing instances
+        gl.vertexAttribDivisor(POSITION_LOCATION, 1);
+        gl.vertexAttribDivisor(COLOR_LOCATION, 1);
+        
+        // draw instances
+        prog.draw(drawable, true, particles[i].numParticles);
+      }      
+    }
+  }
+
 };
+
 
 export default OpenGLRenderer;

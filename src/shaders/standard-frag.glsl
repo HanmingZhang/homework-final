@@ -35,9 +35,6 @@ void main() {
     if(u_EnableTexture > 0){
         col = texture(tex_Color, fs_UV).rgb;
 
-
-
-
         // if using textures, inverse gamma correct
         col = pow(col, vec3(2.2));
     }
