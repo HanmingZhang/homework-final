@@ -55,6 +55,24 @@ function printCamInfo(){
   console.log(camera.controls.center);
 }
 
+// ----------------------------------------------------------------
+// Audio stuff
+var audio1: HTMLAudioElement;
+
+function TestAudio(){
+  if(audio1.ended){
+    audio1.play();
+  }
+  else{
+    if(audio1.paused){
+      audio1.play();
+    }
+    else{
+      audio1.pause();
+    }
+  }
+}
+
 
 // ----------------------------------------------------------------
 // controls object is for GUI
@@ -133,8 +151,8 @@ const controls = {
 
   // Sky box paras
   distance: 400,
-  inclination: 0.487,
-  azimuth: 0.205,
+  inclination: 0.48,
+  azimuth: 0.21,
   luminance: 1.0,
   turbidity: 6.0,
 
@@ -163,10 +181,14 @@ const controls = {
 
   stop: false,
 
+
   
   ParticleSize: -0.1,
   ParticleEdge: 2.5,
   ParticleColor: [255, 225, 172], //[238, 255, 114], //[255, 225, 172],
+
+  testAudio: TestAudio,
+
 };
 
 
@@ -184,10 +206,10 @@ let terrain2: Terrain;
 // Adjust this sun position for a better scene effect
 
 // this position shoule be consistent with 
-// 1. directional light direction in deferred-render.glsl
-// 2. sun position in shadow map
+// 1. directional light direction in deferred-render.glsl (X)
+// 2. sun position in shadow map (X)
 // 3. God ray light source position
-const sun_pos = vec3.fromValues(0, 50.0, -50.0);
+const sun_pos = vec3.fromValues(-1500, 280.0, -6000.0);
 
 
 // Particles stuff
@@ -298,7 +320,7 @@ function loadScene() {
   
   // God ray sphere(it should be consistent with the sun in the scene)
   mat4.identity(modelMatrix);
-  sphere = new Icosphere(sun_pos, 10.0, 6.0, modelMatrix);
+  sphere = new Icosphere(sun_pos, 40.0, 6.0, modelMatrix);
   sphere.create();
 
   // Water
@@ -325,6 +347,9 @@ function main() {
   stats.domElement.style.left = '0px';
   stats.domElement.style.top = '0px';
   document.body.appendChild(stats.domElement);
+
+  // get audio stuff
+  audio1 = <HTMLAudioElement> document.getElementById('audio1');
 
   // get canvas and webgl context
   const canvas = <HTMLCanvasElement> document.getElementById('canvas');
@@ -399,17 +424,11 @@ function main() {
       case 'Default':
         postProcessType = 0;
         break;
-      case 'Bloom':
-        postProcessType = 1;
-        break;
-      case 'GodRay':
-        postProcessType = 2;
-        break;
       default:
         break;
     }
   }
-  gui.add(controls, 'PostProcessingType', ['Null', 'Default', 'Bloom', 'GodRay']).onChange(setPostProcessType);
+  gui.add(controls, 'PostProcessingType', ['Null', 'Default']).onChange(setPostProcessType);
   setPostProcessType();
 
 
@@ -478,6 +497,8 @@ function main() {
     skyBox_SunPosition[2] = controls.distance * Math.sin( phi ) * Math.cos( theta );
 
     renderer.setSkyBoxSunPos(skyBox_SunPosition);
+
+    console.log(skyBox_SunPosition);
 
     // update water material sun direction here
     let tmpDir = vec3.create();
@@ -588,7 +609,12 @@ function main() {
 
   gui.add(controls, 'DemoMode'); // click to turn on demo camera mode
 
+  // -------------------------------------------------------------------
+  // Audio test GUI
+  gui.add(controls, 'testAudio');
   
+
+
   // -------------------------------------------------------------------
   // shadow map debug quad 
   const quadShader = new ShaderProgram([
@@ -598,7 +624,8 @@ function main() {
   gui.add(controls, 'debugShadow');
 
   // Bake shadow map 
-  renderer.renderShadow(sun_pos, window.innerWidth / window.innerHeight, [scatter0]);
+  let shadow_sun_pos = vec3.fromValues(0, 50.0, -50.0);
+  renderer.renderShadow(shadow_sun_pos, window.innerWidth / window.innerHeight, [scatter0]);
   // renderer.renderShadow(sun_pos, window.innerWidth / window.innerHeight, [mesh0, scatter0]);
   
 
@@ -663,7 +690,9 @@ function main() {
     timer.updateTime();
     renderer.updateTime(timer.deltaTime, timer.currentTime, controls);
     if(camera.camMode == CAMERA_MODE.DEMO_MODE){
-      camera.updateDemoCamTime(timer.deltaTime);
+      // timer multiple 0.0005 to get deltaTime so we multiple back 2.0 to 
+      // make 1000 ms to 1s
+      camera.updateDemoCamTime(2.0 * timer.deltaTime);
     }
     
     setTerreainUniformVariables();
@@ -681,7 +710,6 @@ function main() {
       ]);
     }
     else{
-      // TODO: pass any arguments you may need for shader passes
 
       // forward render mesh info into gbuffers
       // renderer.renderToGBuffer(camera, standardDeferred, [mesh0], water);
@@ -702,7 +730,6 @@ function main() {
       // renderer.renderWaterReflectionTexture(water, camera, [mesh0], [tex0]);
       renderer.renderWaterReflectionTexture(water, camera);
       
-
       // particle
       renderer.processParticles(camera);
 
@@ -710,8 +737,9 @@ function main() {
       renderer.renderFromGBuffer(camera, water, postProcessType, controls);
 
       // If it's God ray post process, we need to add an extra occlusion pass
-      if(postProcessType == 2){
-        renderer.renderOcculusion(camera, sphere, [scatter0, scatter1, terrain, terrain2]);      
+      if(postProcessType == 0){
+        // renderer.renderOcculusion(camera, sphere, [terrain, terrain2]);  
+        renderer.renderOcculusion(camera, sphere, [terrain, terrain2]);              
       }
 
       if(camera.camMode == CAMERA_MODE.DEMO_MODE){

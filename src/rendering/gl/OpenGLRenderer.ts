@@ -25,6 +25,7 @@ const NUM_LOCATIONS = 5;
 
 var currentSourceIdx = 0; // ping-pong buffer index
 
+
 const ParticleNum = 100000;
 
 const shadowDepthTextureSize = 1024; // This one should be consistent with that in deferred-render.glsl
@@ -59,6 +60,10 @@ class OpenGLRenderer {
   originalBufferFromGBuffer: WebGLFramebuffer;
   originalTargetFromGBuffer: WebGLTexture;
 
+  // God-ray temp buffer
+  godrayBuffer: WebGLFramebuffer;
+  godrayTarget: WebGLTexture;
+
   // post-processing buffers post-tonemapping (8-bit color)
   post8Buffers: WebGLFramebuffer[];
   post8Targets: WebGLTexture[];
@@ -68,8 +73,8 @@ class OpenGLRenderer {
   post32Passes: PostProcess[];
 
   // add extra post 32 passes shaders
-  post32PassesBloom: PostProcess[];
-  post32PassesGodRay: PostProcess[];
+  // post32PassesBloom: PostProcess[];
+  // post32PassesGodRay: PostProcess[];
 
   currentTime: number; // timer number to apply to all drawing shaders
 
@@ -155,44 +160,77 @@ class OpenGLRenderer {
 
     this.post32Passes = [];
 
-    this.post32PassesBloom = [];
-
-    this.post32PassesGodRay = [];
-
+    // this.post32PassesBloom = [];
+    // this.post32PassesGodRay = [];
 
 
-    // TODO: these are placeholder post shaders, replace them with something good
+
     // --------------------------------
     // Default passes
-    this.add8BitPass(this.post8Passes, new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/examplePost-frag.glsl'))));
-    this.add8BitPass(this.post8Passes, new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/examplePost2-frag.glsl'))));
+    // this.add8BitPass(this.post8Passes, new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/examplePost-frag.glsl'))));
+    // this.add8BitPass(this.post8Passes, new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/examplePost2-frag.glsl'))));
 
-    this.add32BitPass(this.post32Passes, new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/examplePost3-frag.glsl'))));
+    // this.add32BitPass(this.post32Passes, new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/examplePost3-frag.glsl'))));
 
     // --------------------------------
-    // Bloom passes
+    // Post processing passes
+
+    // 1.Godray passes
+    // sample in screen space light direction
+    this.add32BitPass(this.post32Passes, new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/godray-frag.glsl'))));
+    // combine
+    this.add32BitPass(this.post32Passes, new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/combineFragment-frag.glsl'))));
+     
+    // 2.Bloom passes
     // brightness filter
-    this.add32BitPass(this.post32PassesBloom, new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/brightnessFilterRTT-frag.glsl'))));
+    this.add32BitPass(this.post32Passes, new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/brightnessFilterRTT-frag.glsl'))));
+    
     // horizontal gaussian blur
-    this.add32BitPass(this.post32PassesBloom, 
-                      new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/blurRTT-frag.glsl')),
+    this.add32BitPass(this.post32Passes, 
+                      new PostProcess(new Shader(gl.FRAGMENT_SHADER, 
+                                      require('../../shaders/blurRTT-frag.glsl')),
                                       require('../../shaders/horizontalBlurRTT-vert.glsl'), 
                                       'Bloom'));
     // vertical gaussian blur
-    this.add32BitPass(this.post32PassesBloom, 
-                      new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/blurRTT-frag.glsl')),
+    this.add32BitPass(this.post32Passes, 
+                      new PostProcess(new Shader(gl.FRAGMENT_SHADER, 
+                                      require('../../shaders/blurRTT-frag.glsl')),
                                       require('../../shaders/verticalBlurRTT-vert.glsl'), 
                                       'Bloom'));
     // combine
-    this.add32BitPass(this.post32PassesBloom, new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/combineFragment-frag.glsl'))));
+    this.add32BitPass(this.post32Passes, new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/combineFragment-frag.glsl'))));
     
 
-    // --------------------------------
-    // Godray passes
-    // sample in screen space light direction
-    this.add32BitPass(this.post32PassesGodRay, new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/godray-frag.glsl'))));
-    // combine
-    this.add32BitPass(this.post32PassesGodRay, new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/combineFragment-frag.glsl'))));
+    // 3.old film effect pass
+    this.add32BitPass(this.post32Passes, new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/examplePost3-frag.glsl'))));
+    
+    // // --------------------------------
+    // // Bloom passes
+    // // brightness filter
+    // this.add32BitPass(this.post32PassesBloom, new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/brightnessFilterRTT-frag.glsl'))));
+    
+    // // horizontal gaussian blur
+    // this.add32BitPass(this.post32PassesBloom, 
+    //                   new PostProcess(new Shader(gl.FRAGMENT_SHADER, 
+    //                                   require('../../shaders/blurRTT-frag.glsl')),
+    //                                   require('../../shaders/horizontalBlurRTT-vert.glsl'), 
+    //                                   'Bloom'));
+    // // vertical gaussian blur
+    // this.add32BitPass(this.post32PassesBloom, 
+    //                   new PostProcess(new Shader(gl.FRAGMENT_SHADER, 
+    //                                   require('../../shaders/blurRTT-frag.glsl')),
+    //                                   require('../../shaders/verticalBlurRTT-vert.glsl'), 
+    //                                   'Bloom'));
+    // // combine
+    // this.add32BitPass(this.post32PassesBloom, new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/combineFragment-frag.glsl'))));
+    
+
+    // // --------------------------------
+    // // Godray passes
+    // // sample in screen space light direction
+    // this.add32BitPass(this.post32PassesGodRay, new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/godray-frag.glsl'))));
+    // // combine
+    // this.add32BitPass(this.post32PassesGodRay, new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/combineFragment-frag.glsl'))));
      
 
     if (!gl.getExtension("OES_texture_float_linear")) {
@@ -258,33 +296,50 @@ class OpenGLRenderer {
 
   // --------------------------------                          
   setBloomCombineParas(w1: number, w2: number){
-    this.post32PassesBloom[3].setOriginalSceneWeight(w1);
-    this.post32PassesBloom[3].setHighLightWeight(w2);
+    // this.post32PassesBloom[3].setOriginalSceneWeight(w1);
+    // this.post32PassesBloom[3].setHighLightWeight(w2);
+
+    this.post32Passes[5].setOriginalSceneWeight(w1);
+    this.post32Passes[5].setHighLightWeight(w2);
   }
 
   setGodRayDensity(d: number){
-    this.post32PassesGodRay[0].setGodRayDensity(d);
+    // this.post32PassesGodRay[0].setGodRayDensity(d);
+
+    this.post32Passes[0].setGodRayDensity(d);
   }
 
   setGodRayWeight(w: number){
-    this.post32PassesGodRay[0].setGodRayWeight(w);
+    // this.post32PassesGodRay[0].setGodRayWeight(w);
+
+    this.post32Passes[0].setGodRayWeight(w);    
   }
 
   setGodRayDecay(d: number){
-    this.post32PassesGodRay[0].setGodRayDecay(d);
+    // this.post32PassesGodRay[0].setGodRayDecay(d);
+
+    this.post32Passes[0].setGodRayDecay(d);
+    
   }
 
   setGodRayExposure(e: number){
-    this.post32PassesGodRay[0].setGodRayExposure(e);
+    // this.post32PassesGodRay[0].setGodRayExposure(e);
+
+    this.post32Passes[0].setGodRayExposure(e);
   }
 
   setGodRayNumSamples(n: number){
-    this.post32PassesGodRay[0].setGodRaySamples(n);
+    // this.post32PassesGodRay[0].setGodRaySamples(n);
+
+    this.post32Passes[0].setGodRaySamples(n);
   }
 
   setGodRayCombineParas(w1: number, w2: number){
-    this.post32PassesGodRay[1].setOriginalSceneWeight(w1);
-    this.post32PassesGodRay[1].setHighLightWeight(w2);
+    // this.post32PassesGodRay[1].setOriginalSceneWeight(w1);
+    // this.post32PassesGodRay[1].setHighLightWeight(w2);
+
+    this.post32Passes[1].setOriginalSceneWeight(w1);
+    this.post32Passes[1].setHighLightWeight(w2);
   }
 
   setFadeLevel(l: number){
@@ -342,8 +397,11 @@ class OpenGLRenderer {
     this.deferredShader.setHeight(height);
 
     // set Bloom passes size
-    this.post32PassesBloom[1].setWidth(width);   //horizontal blur pass
-    this.post32PassesBloom[2].setHeight(height); //vertical blur pass
+    // this.post32PassesBloom[1].setWidth(width);   //horizontal blur pass
+    // this.post32PassesBloom[2].setHeight(height); //vertical blur pass
+
+    this.post32Passes[3].setWidth(width);   //horizontal blur pass
+    this.post32Passes[4].setHeight(height); //vertical blur pass
 
 
     // --------------------------------                          
@@ -408,6 +466,26 @@ class OpenGLRenderer {
     }
 
     // --------------------------------                          
+    // tmp God ray buffer
+    this.godrayBuffer = gl.createFramebuffer()
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.godrayBuffer);
+    gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
+
+    this.godrayTarget = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.godrayTarget);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, gl.drawingBufferWidth, gl.drawingBufferHeight, 0, gl.RGBA, gl.FLOAT, null);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.godrayTarget, 0);
+
+    FBOstatus = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    if (FBOstatus != gl.FRAMEBUFFER_COMPLETE) {
+      console.error("GL_FRAMEBUFFER_COMPLETE failed, CANNOT use 8 bit FBO\n");
+    }
+
+    // --------------------------------                          
     for (let i = 0; i < this.post8Buffers.length; i++) {
       // --------------------------------                          
       // 8 bit buffers have unsigned byte textures of type gl.RGBA8
@@ -459,8 +537,6 @@ class OpenGLRenderer {
     
     water.reflectionTexture = gl.createTexture(); // this is the reflection RTT
     gl.bindTexture(gl.TEXTURE_2D, water.reflectionTexture);
-    // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); // wrap to edge
@@ -619,7 +695,6 @@ class OpenGLRenderer {
       // if it's default interactive camera mode, we render it to screen buffer
       if(this.camMode == CAMERA_MODE.INTERACTIVE_MODE){
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        //console.log('bind frame buffer to null');
       }
       // if it's in demo camera mode, we need further fade in/out post-process
       else{
@@ -629,7 +704,6 @@ class OpenGLRenderer {
     // if need post-process
     else{
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.originalBufferFromGBuffer);
-      //console.log('bind frame buffer to original buffer');
     }
 
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
@@ -660,10 +734,10 @@ class OpenGLRenderer {
     this.deferredShader.setCloudEdge(controls.CloudLight); 
     this.deferredShader.setGeometryColor(vec4.fromValues(controls.LightColor[0]/255, controls.LightColor[1]/255, controls.LightColor[2]/255, 1.0));
 
-    this.post32Passes[0].setAmount(controls.Aberration);
-    this.post32Passes[0].setAmount2(controls.NoiseStrength);
-    this.post32Passes[0].setAmount3(controls.vignetteintensity);
-    this.post32Passes[0].setAmbient(controls.vignettepow);
+    this.post32Passes[6].setAmount(controls.Aberration);
+    this.post32Passes[6].setAmount2(controls.NoiseStrength);
+    this.post32Passes[6].setAmount3(controls.vignetteintensity);
+    this.post32Passes[6].setAmbient(controls.vignettepow);
 
     this.deferredShader.setLightViewProjMatrix(this.lightViewProjMatrix);
 
@@ -720,97 +794,205 @@ class OpenGLRenderer {
   }
 
 
-  // TODO: pass any info you need as args
   renderPostProcessHDR(postProcessType: number) {
-    // TODO: replace this with your post 32-bit pipeline
-    // the loop shows how to swap between frame buffers and textures given a list of processes,
-    // but specific shaders (e.g. bloom) need specific info as textures
     
     // select which post32Passes group to use
     let thisPost32Passes: PostProcess[] = [];
-    let thisPost8Passes: PostProcess[] = [];
+    // let thisPost8Passes: PostProcess[] = [];
 
-    switch(postProcessType){
-      // Default post process
-      case 0:
-        thisPost32Passes = this.post32Passes;
-        //thisPost8Passes  = this.post8Passes;
-        break;
-      // Bloom post process
-      case 1:
-        thisPost32Passes = this.post32PassesBloom;
-        break;
-      // God ray post process
-      case 2:
-        thisPost32Passes = this.post32PassesGodRay;
-        break;
-      default:
-        break;
-    }
+    thisPost32Passes = this.post32Passes;
 
-    let i = 0;
-    // --------------------------------                          
-    // Single post process pipeline 
-    // for Default, Bloom, God ray post porcesses
-    for (i = 0; i < thisPost32Passes.length; i++){
-      // If this is the last post process pass
-      if(i == thisPost32Passes.length - 1){
-        if(this.camMode == CAMERA_MODE.INTERACTIVE_MODE){
-          gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        }
-        // If it's in demo camera mode, we need further fade in/out post-process
-        else{
-          gl.bindFramebuffer(gl.FRAMEBUFFER, this.post8Buffers[0]);
-        }
-      }
-      else{
-        // Pingpong framebuffers for each pass.
-        // In other words, repeatedly flip between storing the output of the
-        // current post-process pass in post32Buffers[1] and post32Buffers[0].
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[(i + 1) % 2]);
-      }
+    // switch(postProcessType){
+    //   // Default post process
+    //   case 0:
+    //     thisPost32Passes = this.post32Passes;
+    //     //thisPost8Passes  = this.post8Passes;
+    //     break;
+    //   // Bloom post process
+    //   case 1:
+    //     thisPost32Passes = this.post32PassesBloom;
+    //     break;
+    //   // God ray post process
+    //   case 2:
+    //     thisPost32Passes = this.post32PassesGodRay;
+    //     break;
+    //   default:
+    //     break;
+    // }
 
+    if(postProcessType != -1){
 
+      // 1. God ray scattering effect
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[1]);
       gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
       gl.disable(gl.DEPTH_TEST);
-      // gl.enable(gl.BLEND);
       gl.disable(gl.BLEND);
-
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-      // Recall that each frame buffer is associated with a texture that stores
-      // the output of a render pass. post32Targets is the array that stores
-      // these textures, so we alternate reading from the 0th and 1th textures
-      // each frame (the texture we wrote to in our previous render pass).
       gl.activeTexture(gl.TEXTURE0);
-      // default / bloom rain post process passes need to start from 
-      // the orignal G-buffer render
-      if(i == 0 && (postProcessType == 0 || postProcessType == 1)){
-        gl.bindTexture(gl.TEXTURE_2D, this.originalTargetFromGBuffer);        
+      gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[0]); // this one is from render occulusion
+
+      thisPost32Passes[0].draw();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      
+
+      // 2. God ray scattering effect combine with original view
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.godrayBuffer);
+      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+      gl.disable(gl.DEPTH_TEST);
+      gl.disable(gl.BLEND);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[1]);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, this.originalTargetFromGBuffer);
+      
+      thisPost32Passes[1].draw();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+
+      // 3. Bloom brightness filter
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[0]);
+      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+      gl.disable(gl.DEPTH_TEST);
+      gl.disable(gl.BLEND);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.godrayTarget);
+      
+      thisPost32Passes[2].draw();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      
+
+      // 4. Bloom horizontal Gaussian Blur
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[1]);
+      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+      gl.disable(gl.DEPTH_TEST);
+      gl.disable(gl.BLEND);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[0]);
+      
+      thisPost32Passes[3].draw();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      
+
+      // 5. Bloom vertical Gaussian Blur
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[0]);
+      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+      gl.disable(gl.DEPTH_TEST);
+      gl.disable(gl.BLEND);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[1]);
+      
+      thisPost32Passes[4].draw();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+      // 6. Bloom combine
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[1]);
+      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+      gl.disable(gl.DEPTH_TEST);
+      gl.disable(gl.BLEND);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[0]);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, this.godrayTarget);
+
+      thisPost32Passes[5].draw();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+
+      // 7. Old film effect
+      // Interactive camera mode : render to screen
+      if(this.camMode == CAMERA_MODE.INTERACTIVE_MODE){
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       }
+      // Demo camera mode : render to buffer
       else{
-        gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[(i) % 2]);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.post8Buffers[0]);
       }
+      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+      gl.disable(gl.DEPTH_TEST);
+      gl.disable(gl.BLEND);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-      // final pass of Bloom post-process
-      // we need to bind another texture, which is the orginal render
-      if(i == thisPost32Passes.length - 1 && postProcessType == 1){
-        gl.activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_2D, this.originalTargetFromGBuffer);                
-      }
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[1]);
 
-      // final pass of God ray post-process
-      // we need to bind another texture, which is the orginal render
-      if(i == thisPost32Passes.length - 1 && postProcessType == 2){
-        gl.activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_2D, this.originalTargetFromGBuffer);                
-      }
-
-      thisPost32Passes[i].draw();
-
-      // bind default frame buffer
+      thisPost32Passes[6].draw();
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
+
+    // let i = 0;
+    // // --------------------------------                          
+    // // Single post process pipeline 
+    // // for Default, Bloom, God ray post porcesses
+    // for (i = 0; i < thisPost32Passes.length; i++){
+    //   // If this is the last post process pass
+    //   if(i == thisPost32Passes.length - 1){
+    //     if(this.camMode == CAMERA_MODE.INTERACTIVE_MODE){
+    //       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    //     }
+    //     // If it's in demo camera mode, we need further fade in/out post-process
+    //     else{
+    //       gl.bindFramebuffer(gl.FRAMEBUFFER, this.post8Buffers[0]);
+    //     }
+    //   }
+    //   else{
+    //     // Pingpong framebuffers for each pass.
+    //     // In other words, repeatedly flip between storing the output of the
+    //     // current post-process pass in post32Buffers[1] and post32Buffers[0].
+    //     gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[(i + 1) % 2]);
+    //   }
+
+
+    //   gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    //   gl.disable(gl.DEPTH_TEST);
+    //   // gl.enable(gl.BLEND);
+    //   gl.disable(gl.BLEND);
+
+    //   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    //   // Recall that each frame buffer is associated with a texture that stores
+    //   // the output of a render pass. post32Targets is the array that stores
+    //   // these textures, so we alternate reading from the 0th and 1th textures
+    //   // each frame (the texture we wrote to in our previous render pass).
+    //   gl.activeTexture(gl.TEXTURE0);
+    //   // default / bloom rain post process passes need to start from 
+    //   // the orignal G-buffer render
+    //   if(i == 0 && (postProcessType == 0 || postProcessType == 1)){
+    //     gl.bindTexture(gl.TEXTURE_2D, this.originalTargetFromGBuffer);        
+    //   }
+    //   else{
+    //     gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[(i) % 2]);
+    //   }
+
+    //   // final pass of Bloom post-process
+    //   // we need to bind another texture, which is the orginal render
+    //   if(i == thisPost32Passes.length - 1 && postProcessType == 1){
+    //     gl.activeTexture(gl.TEXTURE1);
+    //     gl.bindTexture(gl.TEXTURE_2D, this.originalTargetFromGBuffer);                
+    //   }
+
+    //   // final pass of God ray post-process
+    //   // we need to bind another texture, which is the orginal render
+    //   if(i == thisPost32Passes.length - 1 && postProcessType == 2){
+    //     gl.activeTexture(gl.TEXTURE1);
+    //     gl.bindTexture(gl.TEXTURE_2D, this.originalTargetFromGBuffer);                
+    //   }
+
+    //   thisPost32Passes[i].draw();
+
+    //   // bind default frame buffer
+    //   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    // }
     
     // ******************* DELETE ME ! **************************
     // // --------------------------------                          
@@ -862,6 +1044,7 @@ class OpenGLRenderer {
   
       this.fadePass.draw();
     }
+
   }
 
   // ******************* DELETE ME ! **************************
@@ -938,8 +1121,9 @@ class OpenGLRenderer {
     vec4.scale(lightPos, lightPos, 1.0 / lightPos[3]);
     vec4.add(lightPos, lightPos, vec4.fromValues(1.0, 1.0, 0.0, 0.0));
     vec4.scale(lightPos, lightPos, 0.5);
-    this.post32PassesGodRay[0].setGodRayScreenSpaceLightPos(vec2.fromValues(lightPos[0], lightPos[1]));
-
+    // this.post32PassesGodRay[0].setGodRayScreenSpaceLightPos(vec2.fromValues(lightPos[0], lightPos[1]));
+    this.post32Passes[0].setGodRayScreenSpaceLightPos(vec2.fromValues(lightPos[0], lightPos[1]));
+    
 
     // this is occuluded geometry color
     // we directly draw it black
