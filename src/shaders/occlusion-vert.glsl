@@ -14,7 +14,6 @@ in vec4 vs_Col;             // The array of vertex colors passed to the shader.
 
 void main()
 {
-
     vec4 modelposition = u_Model * vs_Pos;   // Temporarily store the transformed vertex positions for use below
 
     gl_Position = u_ViewProj * modelposition;// gl_Position is a built-in variable of OpenGL which is

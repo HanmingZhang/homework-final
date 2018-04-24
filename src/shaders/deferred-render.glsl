@@ -43,8 +43,7 @@ uniform vec4 u_Color;
 uniform float u_CloudSize;
 uniform float u_CloudEdge;
 
-// directional light
-// const vec3 directional_lighting_dir = normalize(vec3(1.0, 1.0, 1.0)); 
+
 
 uniform sampler2D u_shadowTexture;
 
@@ -69,7 +68,7 @@ const mat4 texUnitConverter = mat4(0.5, 0.0, 0.0, 0.0,
 // directional light
 const vec3 directional_lighting_dir = vec3(0, 50.0, -50.0); 
 // point light position
-const vec3 point_light_pos = vec3(0.0, 50.0, -50.0);
+// const vec3 point_light_pos = vec3(0.0, 50.0, -50.0);
 
 // Water paras
 // const float size = 0.5;
