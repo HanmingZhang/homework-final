@@ -194,16 +194,16 @@ void main() {
 		amountInLight /= 9.0;
 		amountInLight = clamp(amountInLight + 0.5, 0.0, 1.0);
 
-    	// Sand Material
-    	if(materialType > -0.1 && materialType < 25.1){
-      		vec3 col = gb2.xyz;
-	    	float shadow = gb2.w;
-      		vec3 pos = gb1.xyz;
-	    	float spe = materialType;
-	    	// Calculate the diffuse term for Lambert shading
-	    	vec3 normal_world_space = texture(u_gb0, fs_UV).xyz;
+		// Sand Material
+		if(materialType > -0.1 && materialType < 25.1){
+			vec3 col = gb2.xyz;
+				float shadow = gb2.w;
+			vec3 pos = gb1.xyz;
+				float spe = materialType;
+				// Calculate the diffuse term for Lambert shading
+				vec3 normal_world_space = texture(u_gb0, fs_UV).xyz;
 
-			//vec3 sandcolor = vec3(237.0/255.0, 201.0/255.0, 175.0/255.0);
+				//vec3 sandcolor = vec3(237.0/255.0, 201.0/255.0, 175.0/255.0);
 			//specular, blin_phong
 			//vec3 lightColor = vec3(255.0/255.0, 245.0/255.0, 231.0/255.0);
 			vec3 viewDir = normalize(u_CameraPos.xyz - pos);
@@ -232,8 +232,8 @@ void main() {
 			// diffuseTerm = dot(normalize(normal_world_space), normalize(point_light_pos - world_space_pos.xyz));
 
 			float lightIntensity = ONdiffuseTerm + u_Ambient;   //Add a small float value to the color multiplier
-									//to simulate ambient lighting. This ensures that faces that are not
-									//lit by our point light are not completely black.
+										//to simulate ambient lighting. This ensures that faces that are not
+										//lit by our point light are not completely black.
 
 
 
@@ -245,10 +245,10 @@ void main() {
 			color = mix(color, u_SandDiffuse.rgb, fogFactorExp(camera_space_depth));
 
 			vec3 x = max(vec3(0.0), color - vec3(0.004));
-			color = (x * (vec3(6.2) * x + vec3(0.5))) / (x * (vec3(6.2) * x + vec3(1.7)) + vec3(0.06));
-			// out_Col = vec4(color * amountInLight, 1.0);
-			final_col = color * amountInLight;
-    	}
+			vec3 color2 = (x * (vec3(6.2) * x + vec3(0.5))) / (x * (vec3(6.2) * x + vec3(1.7)) + vec3(0.06));
+			vec3 color3 = mix(color, color2, 0.4);
+			final_col = color3 * u_Color.xyz * amountInLight;
+		}
 
 		// Water Material
 		else if(materialType > 100.0){
