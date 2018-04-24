@@ -1,4 +1,4 @@
-import {vec2, vec3, vec4, mat4} from 'gl-matrix';
+import {vec2, vec3, vec4, mat3, mat4} from 'gl-matrix';
 import Drawable from './Drawable';
 import Texture from './Texture';
 import {gl} from '../../globals';
@@ -103,12 +103,24 @@ class ShaderProgram {
   unifWaterSize: WebGLUniformLocation;
   unifWaterDistortionScale: WebGLUniformLocation;
 
-  constructor(shaders: Array<Shader>) {
+  unifCameraAxes: WebGLUniformLocation;
+  
+  unifParticleRadius: WebGLUniformLocation;
+
+  unifParticleTexture: WebGLUniformLocation;
+
+  constructor(shaders: Array<Shader>, isTransformFeedback: boolean = false, varyings: string[] = []) {
     this.prog = gl.createProgram();
 
     for (let shader of shaders) {
       gl.attachShader(this.prog, shader.shader);
     }
+
+    // setup transformFeedback stuff
+    if(isTransformFeedback){
+      gl.transformFeedbackVaryings(this.prog, varyings, gl.SEPARATE_ATTRIBS);
+    }
+
     gl.linkProgram(this.prog);
     if (!gl.getProgramParameter(this.prog, gl.LINK_STATUS)) {
       throw gl.getProgramInfoLog(this.prog);
@@ -192,6 +204,11 @@ class ShaderProgram {
     this.unifWaterSize = gl.getUniformLocation(this.prog, "u_waterSize");
     this.unifWaterDistortionScale = gl.getUniformLocation(this.prog, "u_waterDistortionScale");
 
+    this.unifCameraAxes = gl.getUniformLocation(this.prog, "u_CameraAxes");
+    
+    this.unifParticleRadius = gl.getUniformLocation(this.prog, "u_ParticleRadius");
+
+    this.unifParticleTexture = gl.getUniformLocation(this.prog, "u_ParticleTexture");
 
     this.unifTexUnits = new Map<string, WebGLUniformLocation>();
   }
@@ -615,9 +632,28 @@ class ShaderProgram {
     }
   }
 
+  setCameraAxes(axes: mat3) {
+    this.use();
+    if (this.unifCameraAxes !== -1) {
+      gl.uniformMatrix3fv(this.unifCameraAxes, false, axes);
+    }
+  }
 
+  setParticleSize(particleRadius: number){
+    this.use();
+    if(this.unifParticleRadius !== -1){
+      gl.uniform1f(this.unifParticleRadius, particleRadius);
+    }
+  }
 
-  draw(d: Drawable) {
+  setParticleTexture(i: number) {
+    this.use();
+    if (this.unifParticleTexture !== -1) {
+      gl.uniform1i(this.unifParticleTexture, i);
+    }
+  }
+
+  draw(d: Drawable, isInstanced: boolean = false, numInstances: number = 0) {
     this.use();
 
     if (this.attrPos != -1 && d.bindPos()) {
@@ -646,7 +682,13 @@ class ShaderProgram {
     }
 
     d.bindIdx();
-    gl.drawElements(d.drawMode(), d.elemCount(), gl.UNSIGNED_INT, 0);
+    if(isInstanced){
+      gl.drawElementsInstanced(d.drawMode(), d.elemCount(), gl.UNSIGNED_INT, 0, numInstances);      
+    }
+    else{
+      gl.drawElements(d.drawMode(), d.elemCount(), gl.UNSIGNED_INT, 0);
+    }
+    // gl.drawElements(d.drawMode(), d.elemCount(), gl.UNSIGNED_INT, 0);
 
     if (this.attrPos != -1) gl.disableVertexAttribArray(this.attrPos);
     if (this.attrNor != -1) gl.disableVertexAttribArray(this.attrNor);
