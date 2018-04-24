@@ -59,6 +59,7 @@ class Water{
     mat4.scale(modelMatrix, modelMatrix, vec3.fromValues(size[0], 1.0, size[1]));  
     mat4.rotateX(modelMatrix, modelMatrix, -0.5 * 3.1415926);
     mat4.translate(modelMatrix, modelMatrix, offset);
+    
     this.square = new Square(vec3.fromValues(0, 0, 0), modelMatrix);
     this.square.create();
 

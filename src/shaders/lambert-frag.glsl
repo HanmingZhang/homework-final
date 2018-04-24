@@ -17,6 +17,7 @@ void main() {
     vec3 col;
 
     col = texture(tex_Color, fs_UV).rgb;
+    // col = vec3(0.1, 0.1, 0.1);
 
     // if using textures, inverse gamma correct
     col = pow(col, vec3(2.2));

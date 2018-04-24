@@ -32,6 +32,8 @@ class Camera {
   direction: vec3 = vec3.create();
   target: vec3 = vec3.create();
   up: vec3 = vec3.create();
+  right: vec3 = vec3.create();
+  forward: vec3 = vec3.create();
 
   // Demo camera paras
   camMode: CAMERA_MODE;
@@ -69,6 +71,14 @@ class Camera {
     this.demoCamTargetSequence = [];  // key frame camera targets
 
     this.camMode = CAMERA_MODE.INTERACTIVE_MODE;
+
+    // --------------------------------------------------
+    // Particle billboard effects
+    this.up = vec3.fromValues(0, 1, 0);
+    vec3.subtract(this.forward, target, position);
+    vec3.normalize(this.forward, this.forward);
+    vec3.cross(this.right, this.forward, this.up);
+    vec3.normalize(this.right, this.right);
   }
 
   setAspectRatio(aspectRatio: number) {
@@ -87,6 +97,7 @@ class Camera {
 
       vec3.add(this.target, this.position, this.direction);
       mat4.lookAt(this.viewMatrix, this.controls.eye, this.controls.center, this.controls.up);
+      vec3.subtract(this.forward, this.controls.center, this.controls.eye);
     }
 
     // -------------------------------------------------
@@ -133,6 +144,8 @@ class Camera {
 
         // update view matrix
         mat4.lookAt(this.viewMatrix, this.demoCamPos , this.demoCamTarget, vec3.fromValues(0, 1, 0)); 
+        vec3.subtract(this.forward, this.demoCamTarget, this.demoCamPos);
+        
       }
 
       // final fade in/out, we should back to general interactive camera
@@ -140,9 +153,18 @@ class Camera {
         this.controls.tick();
         vec3.add(this.target, this.position, this.direction);
         mat4.lookAt(this.viewMatrix, this.controls.eye, this.controls.center, this.controls.up);
+        vec3.subtract(this.forward, this.controls.center, this.controls.eye);        
       }
 
     }
+
+    // -----------------------------------------------------
+    // update forward, up, right directions of camera
+    vec3.normalize(this.forward, this.forward);
+    vec3.cross(this.right, this.forward, this.up);
+    vec3.normalize(this.right, this.right);
+    vec3.cross(this.up, this.right, this.forward);
+    vec3.normalize(this.up, this.up);
   }
 
   // cinematic key framed camera paras

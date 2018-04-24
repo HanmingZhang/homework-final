@@ -55,6 +55,7 @@ function printCamInfo(){
   console.log(camera.controls.center);
 }
 
+
 // ----------------------------------------------------------------
 // controls object is for GUI
 // Define an object with application parameters and button callbacks
@@ -144,7 +145,6 @@ const controls = {
 
 // ----------------------------------------------------------------
 // Geometry used in our scene
-let square: Square; // For ground
 let quad: Square;   // For shadow map debug scene
 let sphere: Icosphere; // For God ray sphere
 let water: Water; 
@@ -163,16 +163,17 @@ let terrain2: Terrain;
 const sun_pos = vec3.fromValues(0, 50.0, -50.0);
 
 
+// Particles stuff
+var particle_transform : ShaderProgram;
+
 // TODO: add scene's stuff here
 let obj0: string;
 let obj1: string;
 let obj2: string;
-let mesh0: Mesh;
 let scatter0: Scatter;
 let scatter1: Scatter;
 let scatter2: Scatter;
 
-let tex0: Texture;
 let terrain_diffuse: Texture;
 let terrain_normal: Texture;
 let terrain_specular: Texture;
@@ -202,8 +203,6 @@ function loadOBJText() {
 
 
 function loadScene() {
-  square && square.destroy();
-  mesh0 && mesh0.destroy();
   scatter0 && scatter0.destroy();
   scatter1 && scatter1.destroy();
   scatter2 && scatter2.destroy();
@@ -212,24 +211,11 @@ function loadScene() {
 
   let modelMatrix = mat4.create();
 
-  // Plane to cast shadow on
-  mat4.identity(modelMatrix);
-  mat4.scale(modelMatrix, modelMatrix, vec3.fromValues(12.0, 1.0, 16.0));  
-  mat4.rotateX(modelMatrix, modelMatrix, -0.5 * 3.1415926);
-  mat4.translate(modelMatrix, modelMatrix, vec3.fromValues(0.0, -0.5, -0.5));
-  square = new Square(vec3.fromValues(0, 0, 0), modelMatrix);
-  square.create();
 
   // Shadow map debug quad
   mat4.identity(modelMatrix);
   quad = new Square(vec3.fromValues(0, 0, 0), modelMatrix);
   quad.create();
-
-  // Wahoo!
-  mat4.identity(modelMatrix);
-  mesh0 = new Mesh(obj0, vec3.fromValues(0, 0, 0), modelMatrix);
-  mesh0.create();
-
 
   mat4.identity(modelMatrix);
   grid = new Grid(controls.GridSize, controls.GridSize, controls.Division, controls.Division, modelMatrix);
@@ -275,16 +261,15 @@ function loadScene() {
   scatter1 = new Scatter(obj1, vec3.fromValues(0, 0, 0), modelMatrix, randomnums, terrain2);
   scatter1.create();
   
-   // God ray sphere(it should be consistent with the sun in the scene)
+  // God ray sphere(it should be consistent with the sun in the scene)
   mat4.identity(modelMatrix);
   sphere = new Icosphere(sun_pos, 10.0, 6.0, modelMatrix);
   sphere.create();
 
+  // Water
   water = new Water(vec2.fromValues(10000, 10000), vec3.fromValues(0, 0.0, -1.0), 'resources/textures/waternormals.jpg');
 
-  // Wahoo obj abledo texture
 
-  tex0 = new Texture('resources/textures/wahoo.bmp');
   terrain_diffuse = new Texture('resources/textures/plaster-nk-01.png');
   terrain_normal = new Texture('resources/textures/plaster-nk-01-normal.png');
   terrain_specular = new Texture('resources/textures/grass-spec.png');
@@ -498,35 +483,7 @@ function main() {
   f4.add(controls, 'DistortionScale', 0.1, 8).step(0.1).onChange(setWaterDistortionScale);
   f4.open();
 
-  // -------------------------------------------------------------------
-  // TODO : Add camera fade effect keys here!
-  camera.addDemoCamFadeEffect(20.0, 30.0) // 20 - 30s
-
-  // TODO : Add key frame camera info
-  camera.addDemoCamPos({startTime: 2.0, endTime: 25.0, startPos: vec3.fromValues(80.0, 80.0, 100.0), endPos: vec3.fromValues(80.0, 100.0, 80.0)});
-  camera.addDemoCamTarget({startTime: 2.0, endTime: 25.0, startPos: vec3.fromValues(-20.0, 0, 0), endPos: vec3.fromValues(10, 0, 0)});
-
-  camera.addDemoCamPos({startTime: 25.0, endTime: 45.0, startPos: vec3.fromValues(0.0, -2.0, 10.0), endPos: vec3.fromValues(0.0, 15.0, 10.0)});
-  camera.addDemoCamTarget({startTime: 25.0, endTime: 45.0, startPos: vec3.fromValues(0.0, -2.0, 0), endPos: vec3.fromValues(0, 15.0, 0)});
-
-  camera.addDemoCamPos({startTime: 45.0, endTime: 63.0, startPos: vec3.fromValues(-30, 15.0, 25.0), endPos: vec3.fromValues(10, 9.0, 20.0)});
-  camera.addDemoCamTarget({startTime: 45.0, endTime: 63.0, startPos: vec3.fromValues(0, 0, 0), endPos: vec3.fromValues(0, 0, 0)});
-
-  gui.add(controls, 'DemoMode'); // click to turn on demo camera mode
-
-
-  
-  // -------------------------------------------------------------------
-  // shadow map debug quad 
-  const quadShader = new ShaderProgram([
-    new Shader(gl.VERTEX_SHADER, require('./shaders/quad-vert.glsl')),
-    new Shader(gl.FRAGMENT_SHADER, require('./shaders/quad-frag.glsl')),
-  ]);
-  gui.add(controls, 'debugShadow');
-
-  // Bake shadow map 
-  renderer.renderShadow(sun_pos, window.innerWidth / window.innerHeight, [mesh0]);
-
+  // 
   var f3 = gui.addFolder('Deferred');
   f3.add(controls, 'Roughness', 0, 1).step(0.01);
   f3.add(controls, 'Shininess', 0, 20).step(0.01);
@@ -560,26 +517,47 @@ function main() {
   f6.add(controls, 'RibbonAmount', 0, 10).step(0.01);
   f6.add(controls, 'RibbonAmount2', 0, 10).step(0.01);
   f6.add(controls, 'RibbonAmount3', 0, 10).step(0.01);
-  // -------------------------------------------------------------------
-  function tick() {
-    camera.update();
-    stats.begin();
-    gl.viewport(0, 0, window.innerWidth, window.innerHeight);
-    
-    // update time 
-    timer.updateTime();
-    renderer.updateTime(timer.deltaTime, timer.currentTime);
-    if(camera.camMode == CAMERA_MODE.DEMO_MODE){
-      camera.updateDemoCamTime(timer.deltaTime);
-    }
 
-    // Wahoo abledo texture
-    standardDeferred.bindTexToUnit("tex_Color", tex0, 0);
-    terrainDeferred.bindTexToUnit("tex_Color", terrain_diffuse, 1);
-    terrainDeferred.bindTexToUnit("tex_Normal", terrain_normal, 2);
-    terrainDeferred.bindTexToUnit("tex_Specular", terrain_specular, 3);
-    terrainDeferred.bindTexToUnit("sand_Normal", sand_normal, 4);
-    terrainDeferred.bindTexToUnit("sand_Normal2", sand_normal2, 5);
+
+
+  // -------------------------------------------------------------------
+  // TODO : Add camera fade effect keys here!
+  camera.addDemoCamFadeEffect(20.0, 30.0) // 20 - 30s
+
+  // TODO : Add key frame camera info
+  camera.addDemoCamPos({startTime: 2.0, endTime: 25.0, startPos: vec3.fromValues(80.0, 80.0, 100.0), endPos: vec3.fromValues(80.0, 100.0, 80.0)});
+  camera.addDemoCamTarget({startTime: 2.0, endTime: 25.0, startPos: vec3.fromValues(-20.0, 0, 0), endPos: vec3.fromValues(10, 0, 0)});
+
+  camera.addDemoCamPos({startTime: 25.0, endTime: 45.0, startPos: vec3.fromValues(0.0, -2.0, 10.0), endPos: vec3.fromValues(0.0, 15.0, 10.0)});
+  camera.addDemoCamTarget({startTime: 25.0, endTime: 45.0, startPos: vec3.fromValues(0.0, -2.0, 0), endPos: vec3.fromValues(0, 15.0, 0)});
+
+  camera.addDemoCamPos({startTime: 45.0, endTime: 63.0, startPos: vec3.fromValues(-30, 15.0, 25.0), endPos: vec3.fromValues(10, 9.0, 20.0)});
+  camera.addDemoCamTarget({startTime: 45.0, endTime: 63.0, startPos: vec3.fromValues(0, 0, 0), endPos: vec3.fromValues(0, 0, 0)});
+
+  gui.add(controls, 'DemoMode'); // click to turn on demo camera mode
+
+  
+  // -------------------------------------------------------------------
+  // shadow map debug quad 
+  const quadShader = new ShaderProgram([
+    new Shader(gl.VERTEX_SHADER, require('./shaders/quad-vert.glsl')),
+    new Shader(gl.FRAGMENT_SHADER, require('./shaders/quad-frag.glsl')),
+  ]);
+  gui.add(controls, 'debugShadow');
+
+  // Bake shadow map 
+  renderer.renderShadow(sun_pos, window.innerWidth / window.innerHeight, [scatter0]);
+  // renderer.renderShadow(sun_pos, window.innerWidth / window.innerHeight, [mesh0, scatter0]);
+  
+
+  // -------------------------------------------------------------------
+  function setTerreainUniformVariables() {
+    // Terrain uniform variables
+    terrainDeferred.bindTexToUnit("tex_Color", terrain_diffuse, 0);
+    terrainDeferred.bindTexToUnit("tex_Normal", terrain_normal, 1);
+    terrainDeferred.bindTexToUnit("tex_Specular", terrain_specular, 2);
+    terrainDeferred.bindTexToUnit("sand_Normal", sand_normal, 3);
+    terrainDeferred.bindTexToUnit("sand_Normal2", sand_normal2, 4);
     terrainDeferred.setSandEdge(controls.SandEdge);
     terrainDeferred.setSandSteep(controls.SandSteep);
     terrainDeferred.setFlowEdge(controls.FlowEdge);
@@ -592,9 +570,9 @@ function main() {
     terrainDeferred.setCloudSpeed(controls.CloudSpeed);
     terrainDeferred.setCloudSpeed2(controls.CloudSpeed2);
 
-    mounDeferred.bindTexToUnit("tex_Color", moun_diffuse, 6);
-    mounDeferred.bindTexToUnit("tex_Normal", moun_normal, 7);
-    mounDeferred.bindTexToUnit("tex_Specular", moun_specular, 8);
+    mounDeferred.bindTexToUnit("tex_Color", moun_diffuse, 5);
+    mounDeferred.bindTexToUnit("tex_Normal", moun_normal, 6);
+    mounDeferred.bindTexToUnit("tex_Specular", moun_specular, 7);
     mounDeferred.setSandDiffuse(vec4.fromValues(controls.MounDiffuse[0]/255, controls.MounDiffuse[1]/255, controls.MounDiffuse[2]/255, 1.0));
     mounDeferred.setSandSpecular(vec4.fromValues(controls.SandDiffuse[0]/255, controls.SandDiffuse[1]/255, controls.SandDiffuse[2]/255, 1.0));
     mounDeferred.setSandEdge(controls.MounEdge);
@@ -605,9 +583,9 @@ function main() {
     mounDeferred.setCloudSpeed2(controls.CloudSpeed2);
     mounDeferred.setTime(timer.currentTime);
 
-    ribbonDeferred.bindTexToUnit("tex_Color", moun_diffuse, 6);
-    ribbonDeferred.bindTexToUnit("tex_Normal", moun_normal, 7);
-    ribbonDeferred.bindTexToUnit("tex_Specular", moun_specular, 8);
+    ribbonDeferred.bindTexToUnit("tex_Color", moun_diffuse, 5);
+    ribbonDeferred.bindTexToUnit("tex_Normal", moun_normal, 6);
+    ribbonDeferred.bindTexToUnit("tex_Specular", moun_specular, 7);
     ribbonDeferred.setSandDiffuse(vec4.fromValues(controls.RibbonDiffuse[0]/255, controls.RibbonDiffuse[1]/255, controls.RibbonDiffuse[2]/255, 1.0));
     ribbonDeferred.setSandSpecular(vec4.fromValues(controls.SandDiffuse[0]/255, controls.SandDiffuse[1]/255, controls.SandDiffuse[2]/255, 1.0));
     ribbonDeferred.setSandEdge(controls.RibbonEdge);
@@ -620,6 +598,23 @@ function main() {
     ribbonDeferred.setAmount(controls.RibbonAmount);
     ribbonDeferred.setAmount2(controls.RibbonAmount2);
     ribbonDeferred.setAmount3(controls.RibbonAmount3);
+  }
+
+  
+  // -------------------------------------------------------------------
+  function tick() {
+    camera.update();
+    stats.begin();
+    gl.viewport(0, 0, window.innerWidth, window.innerHeight);
+    
+    // update time 
+    timer.updateTime();
+    renderer.updateTime(timer.deltaTime, timer.currentTime);
+    if(camera.camMode == CAMERA_MODE.DEMO_MODE){
+      camera.updateDemoCamTime(timer.deltaTime);
+    }
+    
+    setTerreainUniformVariables();
 
     renderer.clear();
     renderer.clearGB();
@@ -635,9 +630,8 @@ function main() {
       // TODO: pass any arguments you may need for shader passes
 
       // forward render mesh info into gbuffers
-      // renderer.renderToGBuffer(camera, standardDeferred, [mesh0, square], water);     
-      renderer.renderToGBuffer(camera, standardDeferred, [mesh0], water);
-       
+      // renderer.renderToGBuffer(camera, standardDeferred, [mesh0], water);
+      renderer.renderToGBuffer(camera, standardDeferred, [], water);
       
       // forward render mesh info into gbuffers
       terrainDeferred.setGridSize(controls.GridSize);
@@ -645,23 +639,24 @@ function main() {
       terrainDeferred.setGridSize(controls.GridSize2);
       renderer.renderToGBuffer(camera, terrainDeferred, [terrain2], water);   
       renderer.renderToGBuffer(camera, mounDeferred, [scatter0, scatter1], water);  
-      //renderer.renderToGBuffer(camera, mounDeferred, [scatter0]);   
       renderer.renderToGBuffer(camera, ribbonDeferred, [scatter2], water); 
     
-      
-      
       // sky box
       renderer.renderSkyBox(camera);
 
       // water layer
-      renderer.renderWaterReflectionTexture(water, camera, [mesh0], tex0);
+      // renderer.renderWaterReflectionTexture(water, camera, [mesh0], [tex0]);
+      renderer.renderWaterReflectionTexture(water, camera);
+      
+
+      // particle
+      renderer.processParticles(camera);
 
       // render from gbuffers into 32-bit color buffer
       renderer.renderFromGBuffer(camera, water, postProcessType, controls);
 
       // If it's God ray post process, we need to add an extra occlusion pass
       if(postProcessType == 2){
-        // renderer.renderOcculusion(camera, sphere, [mesh0, square]);  
         renderer.renderOcculusion(camera, sphere, [scatter0, scatter1, terrain, terrain2]);      
       }
 
@@ -672,7 +667,7 @@ function main() {
 
       if(postProcessType != -1 || camera.camMode == CAMERA_MODE.DEMO_MODE){
         // 1. apply 32-bit post 
-        // 2. tonemap from 32-bit color to 8-bit color
+        // 2. tonemap from 32-bit color to 8-bit color (DELETED)
         // 3. cinematic camera fade transition effect if necessary
         renderer.renderPostProcessHDR(postProcessType);
       }
