@@ -83,7 +83,7 @@ const controls = {
 
   // Bloom
   BloomOriWeight: 0.8,
-  BloomHighLightWeight: 0.5, //2.5,
+  BloomHighLightWeight: 0.7, //2.5,
 
   // God ray
   Density: 0.91,
@@ -181,7 +181,14 @@ const controls = {
 
   stop: false,
 
+
+  
+  ParticleSize: -0.1,
+  ParticleEdge: 2.5,
+  ParticleColor: [255, 225, 172], //[238, 255, 114], //[255, 225, 172],
+
   testAudio: TestAudio,
+
 };
 
 
@@ -582,6 +589,9 @@ function main() {
   f8.add(controls, 'vignetteintensity', 0.0, 32.0).step(0.01);
   f8.add(controls, 'vignettepow', 0.0, 1.0).step(0.01);
   gui.add(controls, 'stop');
+  gui.add(controls, 'ParticleSize', -1, 1).step(0.01);
+  gui.add(controls, 'ParticleEdge', 0, 5).step(0.01);
+  gui.addColor(controls, 'ParticleColor');
 
   // -------------------------------------------------------------------
   // TODO : Add camera fade effect keys here!
@@ -678,7 +688,7 @@ function main() {
     
     // update time 
     timer.updateTime();
-    renderer.updateTime(timer.deltaTime, timer.currentTime);
+    renderer.updateTime(timer.deltaTime, timer.currentTime, controls);
     if(camera.camMode == CAMERA_MODE.DEMO_MODE){
       // timer multiple 0.0005 to get deltaTime so we multiple back 2.0 to 
       // make 1000 ms to 1s
