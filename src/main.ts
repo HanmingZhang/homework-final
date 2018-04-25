@@ -32,8 +32,8 @@ export interface CAMERA_SEQUENCE{
 };
 
 
-const camera = new Camera(vec3.fromValues(0, 45, 120), vec3.fromValues(0, 25, 0));
-const cameraDemoModeLength = 66000; // milliseconds (66 seconds)
+const camera = new Camera(vec3.fromValues(-3.44, 71.84, 115.52), vec3.fromValues(-3.44, 51.84, -4.47)); // initial camera position
+const cameraDemoModeLength = 70000; // milliseconds change to seconds
 var renderer: OpenGLRenderer;
 
 function startDemoCam(){
@@ -152,7 +152,9 @@ const controls = {
   // Sky box paras
   distance: 400,
   inclination: 0.484,
+
   azimuth: 0.25, //0.2115,
+
   luminance: 1.0,
   turbidity: 6.0,
 
@@ -189,6 +191,7 @@ const controls = {
 
   testAudio: TestAudio,
 
+  
   FogColorb: [255, 237, 222],
   LightColorb: [236, 220, 255],
   SkyColorb: [253, 242, 255],
@@ -196,6 +199,10 @@ const controls = {
   FlareColor: [255, 255, 255],
 
   EdgePow: 0.8
+
+  GodRayOffsetX: 0.0,
+  GodRayOffsetY: 0.0,
+  GodRayOffsetZ: 0.0
 };
 
 
@@ -497,6 +504,13 @@ function main() {
   }
   setGodRayCombineParas();
 
+  function setGodRayOffsetPos(){
+    mat4.fromTranslation(sphere.model, vec3.fromValues(controls.GodRayOffsetX, controls.GodRayOffsetY, controls.GodRayOffsetZ));
+    sphere.centerOffset[0] = controls.GodRayOffsetX;
+    sphere.centerOffset[1] = controls.GodRayOffsetY;
+    sphere.centerOffset[2] = controls.GodRayOffsetZ;
+  }
+
   var f2 = gui.addFolder('God Ray Paras');
   f2.add(controls, 'Density', 0.0, 2.0).step(0.01).onChange(setGodRayDensity);
   f2.add(controls, 'Weight', 0.0, 0.1).step(0.01).onChange(setGodRayWeight);  
@@ -504,7 +518,11 @@ function main() {
   f2.add(controls, 'Exposure', 0.0, 3.0).step(0.01).onChange(setGodRayExposure);  
   f2.add(controls, 'NumSamples', 1, 100).step(1).onChange(setGodRaySamples);    
   f2.add(controls, 'GodRayOriWeight', 0.0, 1.0).step(0.1).onChange(setGodRayCombineParas);
-  f2.add(controls, 'GodRayHighLightWeight', 0.0, 5.0).step(0.1).onChange(setGodRayCombineParas);  
+  f2.add(controls, 'GodRayHighLightWeight', 0.0, 5.0).step(0.1).onChange(setGodRayCombineParas);
+  f2.add(controls, 'GodRayOffsetX', -5000, 5000).step(50.0).onChange(setGodRayOffsetPos);
+  f2.add(controls, 'GodRayOffsetY', -1000, 5000).step(50.0).onChange(setGodRayOffsetPos);
+  f2.add(controls, 'GodRayOffsetZ', 0, 8000).step(50.0).onChange(setGodRayOffsetPos);
+  
   f2.close();  
 
 
@@ -619,19 +637,28 @@ function main() {
 
   // -------------------------------------------------------------------
   // TODO : Add camera fade effect keys here!
-  camera.addDemoCamFadeEffect(20.0, 30.0) // 20 - 30s
+  camera.addDemoCamFadeEffect(12.0, 18.0);
+  camera.addDemoCamFadeEffect(51.0, 59.0) // 20 - 30s
+  
 
   // TODO : Add key frame camera info
-  camera.addDemoCamPos({startTime: 2.0, endTime: 25.0, startPos: vec3.fromValues(80.0, 80.0, 100.0), endPos: vec3.fromValues(80.0, 100.0, 80.0)});
-  camera.addDemoCamTarget({startTime: 2.0, endTime: 25.0, startPos: vec3.fromValues(-20.0, 0, 0), endPos: vec3.fromValues(10, 0, 0)});
+  camera.addDemoCamPos({startTime: 2.0, endTime: 15.0, startPos: vec3.fromValues(80.0, 80.0, 100.0), endPos: vec3.fromValues(80.0, 100.0, 80.0)});
+  camera.addDemoCamTarget({startTime: 2.0, endTime: 15.0, startPos: vec3.fromValues(-20.0, 0, 0), endPos: vec3.fromValues(10, 0, 0)});
 
-  camera.addDemoCamPos({startTime: 25.0, endTime: 45.0, startPos: vec3.fromValues(0.0, -2.0, 10.0), endPos: vec3.fromValues(0.0, 15.0, 10.0)});
-  camera.addDemoCamTarget({startTime: 25.0, endTime: 45.0, startPos: vec3.fromValues(0.0, -2.0, 0), endPos: vec3.fromValues(0, 15.0, 0)});
+  camera.addDemoCamPos({startTime: 15.0, endTime: 30.0, startPos: vec3.fromValues(0.0, 63.0, 10.0), endPos: vec3.fromValues(0.0, 88.0, 10.0)});
+  camera.addDemoCamTarget({startTime: 15.0, endTime: 30.0, startPos: vec3.fromValues(0.0, 40.0, -300.0), endPos: vec3.fromValues(0, 75.0, -330.0)});
 
-  camera.addDemoCamPos({startTime: 45.0, endTime: 63.0, startPos: vec3.fromValues(-30, 15.0, 25.0), endPos: vec3.fromValues(10, 9.0, 20.0)});
-  camera.addDemoCamTarget({startTime: 45.0, endTime: 63.0, startPos: vec3.fromValues(0, 0, 0), endPos: vec3.fromValues(0, 0, 0)});
+  camera.addDemoCamPos({startTime: 30.0, endTime: 55.0, startPos: vec3.fromValues(-35, 90.0, 125.0), endPos: vec3.fromValues(270, 140.0, 285.0)});
+  camera.addDemoCamTarget({startTime: 30.0, endTime: 55.0, startPos: vec3.fromValues(20, 30, 0), endPos: vec3.fromValues(80, 10, -30)});
+
+  camera.addDemoCamPos({startTime: 55.0, endTime: 70.0, startPos: vec3.fromValues(-50, 115.0, 65.0), endPos: vec3.fromValues(40, 55.0, 20.0)});
+  camera.addDemoCamTarget({startTime: 55.0, endTime: 70.0, startPos: vec3.fromValues(0, 50, 0), endPos: vec3.fromValues(0, 50, 0)});
+
+
 
   gui.add(controls, 'DemoMode'); // click to turn on demo camera mode
+
+
 
   // -------------------------------------------------------------------
   // Audio test GUI
@@ -718,8 +745,8 @@ function main() {
     timer.updateTime();
     renderer.updateTime(timer.deltaTime, timer.currentTime, controls);
     if(camera.camMode == CAMERA_MODE.DEMO_MODE){
-      // timer multiple 0.0005 to get deltaTime so we multiple back 2.0 to 
-      // make 1000 ms to 1s
+      // timer scalar in updateTime() is 0.0005. 
+      // To get accurate deltaTime,  we multiple back 2.0 to make 1000 ms to 1s
       camera.updateDemoCamTime(2.0 * timer.deltaTime);
     }
     
