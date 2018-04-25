@@ -1106,16 +1106,16 @@ class OpenGLRenderer {
     // set light color as white
     this.occlusionShader.setGeometryColor(vec4.fromValues(1.0, 1.0, 1.0, 1.0));
 
-    let model = mat4.create();
-    mat4.identity(model);
-    this.occlusionShader.setModelMatrix(model); 
+    // let model = mat4.create();
+    // mat4.identity(model);
+    this.occlusionShader.setModelMatrix(lightSphere.model); 
 
     this.occlusionShader.draw(lightSphere);    
 
     // update later post-process screen space light position
-    let lightPos = vec4.fromValues(lightSphere.center[0],
-                                   lightSphere.center[1],
-                                   lightSphere.center[2],
+    let lightPos = vec4.fromValues(lightSphere.center[0] + lightSphere.centerOffset[0],
+                                   lightSphere.center[1] + lightSphere.centerOffset[1],
+                                   lightSphere.center[2] + lightSphere.centerOffset[2],
                                    1.0);
     vec4.transformMat4(lightPos, lightPos, viewProj);
     vec4.scale(lightPos, lightPos, 1.0 / lightPos[3]);
@@ -1250,7 +1250,7 @@ class OpenGLRenderer {
 
     // Use lambert shader to render reflection so far
     if(textures.length !== 0){
-      // TODO: set uniforms/textures for shader  
+      // TODO: set other uniforms/textures for shader  
       this.lambertShader.setupTexUnits(["tex_Color"]);
       this.lambertShader.bindTexToUnit("tex_Color", textures[0], 0);
     }

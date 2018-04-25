@@ -274,7 +274,6 @@ void main()
     // else{
 
         // a new particle
-        // TODO : Check whether particle is out of bound
         if(a_time.x == 0.0){
             // setup initial position
             v_position = genParticlePosOnTerreain();
