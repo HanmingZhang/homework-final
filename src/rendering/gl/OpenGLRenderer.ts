@@ -37,6 +37,13 @@ let SkyBox: Cube;
 let particle: Particle;
 let particle_square: Square; // this is billboard square
 
+function lerp(x: number, y: number, a: number)
+{
+  //x×(1−a)+y×a
+  var b = a / 0.50;
+  return y * (1.0 - b) + x * b;
+}
+
 class OpenGLRenderer {
   gBuffer: WebGLFramebuffer; // framebuffer for deferred rendering
 
@@ -203,6 +210,8 @@ class OpenGLRenderer {
 
     // 3.old film effect pass
     this.add32BitPass(this.post32Passes, new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/examplePost3-frag.glsl'))));
+
+    this.add32BitPass(this.post32Passes, new PostProcess(new Shader(gl.FRAGMENT_SHADER, require('../../shaders/ghost-frag.glsl'))));
     
     // // --------------------------------
     // // Bloom passes
@@ -334,6 +343,14 @@ class OpenGLRenderer {
     this.post32Passes[0].setGodRaySamples(n);
   }
 
+  setGodRayScreen(w: number, h: number, controls: any){
+    // this.post32PassesGodRay[0].setGodRaySamples(n);
+
+    this.post32Passes[0].setWidth(w);
+    this.post32Passes[0].setHeight(h);
+    this.post32Passes[0].setGeometryColor(vec4.fromValues(controls.FlareColor[0]/255, controls.FlareColor[1]/255, controls.FlareColor[2]/255, 1.0));
+  }
+
   setGodRayCombineParas(w1: number, w2: number){
     // this.post32PassesGodRay[1].setOriginalSceneWeight(w1);
     // this.post32PassesGodRay[1].setHighLightWeight(w2);
@@ -368,7 +385,11 @@ class OpenGLRenderer {
     this.skyBoxShader.setAmount2(controls.CloudHorizon);
     this.skyBoxShader.setAmount3(controls.CloudEdge3);
     this.skyBoxShader.setTime(currentTime);
-    this.skyBoxShader.setSandDiffuse(vec4.fromValues(controls.SkyColor[0]/255, controls.SkyColor[1]/255, controls.SkyColor[2]/255, 1.0));
+    //this.skyBoxShader.setSandDiffuse(vec4.fromValues(controls.SkyColor[0]/255, controls.SkyColor[1]/255, controls.SkyColor[2]/255, 1.0));
+    //console.log("controls.inclination" + controls.inclination);
+    this.skyBoxShader.setSandDiffuse(vec4.fromValues(lerp(controls.SkyColor[0]/255, controls.SkyColorb[0]/255, controls.inclination), 
+                                                        lerp(controls.SkyColor[1]/255, controls.SkyColorb[1]/255, controls.inclination),
+                                                        lerp(controls.SkyColor[2]/255, controls.SkyColorb[2]/255, controls.inclination), 1.0));
   }
 
   setWaterSunDirection(dir: vec3){
@@ -726,13 +747,18 @@ class OpenGLRenderer {
     this.deferredShader.setAmbient(controls.Ambient);
     this.deferredShader.setBrightness(controls.Brightness);
     this.deferredShader.setLevel(controls.Level);
-    this.deferredShader.setSandEdge(controls.Specular);   
-    this.deferredShader.setSandDiffuse(vec4.fromValues(controls.FogColor[0]/255, controls.FogColor[1]/255, controls.FogColor[2]/255, 1.0));
+    this.deferredShader.setSandEdge(controls.Specular);
+  
+    this.deferredShader.setSandDiffuse(vec4.fromValues(lerp(controls.FogColor[0]/255, controls.FogColorb[0]/255, controls.inclination), 
+                                                        lerp(controls.FogColor[1]/255, controls.FogColorb[1]/255, controls.inclination),
+                                                        lerp(controls.FogColor[2]/255, controls.FogColorb[2]/255, controls.inclination), 1.0));
     this.deferredShader.setSandSpecular(vec4.fromValues(controls.SandSpecular[0]/255, controls.SandSpecular[1]/255, controls.SandSpecular[2]/255, 1.0)); 
     this.deferredShader.setFogDensity(controls.FogDensity); 
     this.deferredShader.setCloudSize(controls.CloudStrength); 
     this.deferredShader.setCloudEdge(controls.CloudLight); 
-    this.deferredShader.setGeometryColor(vec4.fromValues(controls.LightColor[0]/255, controls.LightColor[1]/255, controls.LightColor[2]/255, 1.0));
+    this.deferredShader.setGeometryColor(vec4.fromValues(lerp(controls.LightColor[0]/255, controls.LightColorb[0]/255, controls.inclination), 
+                                                        lerp(controls.LightColor[1]/255, controls.LightColorb[1]/255, controls.inclination),
+                                                        lerp(controls.LightColor[2]/255, controls.LightColorb[2]/255, controls.inclination), 1.0));
 
     this.post32Passes[6].setAmount(controls.Aberration);
     this.post32Passes[6].setAmount2(controls.NoiseStrength);
