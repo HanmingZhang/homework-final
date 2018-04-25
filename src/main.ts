@@ -91,8 +91,8 @@ const controls = {
   Decay: 0.97,
   Exposure: 2.05,
   NumSamples: 100,
-  GodRayOriWeight: 0.8,
-  GodRayHighLightWeight: 1.7,
+  GodRayOriWeight: 1.0, //0.8,
+  GodRayHighLightWeight: 1.0, //1.7,
 
   // Fade Effect
   DemoMode: startDemoCam, 
@@ -126,11 +126,11 @@ const controls = {
 
   SandDiffuse: [227, 208, 147], //[255, 196, 155],//[237.0, 201.0, 175.0],
   SandSpecular: [255, 225, 155], //[155, 237, 255],//[255.0, 245.0, 231.0],
-  MounDiffuse: [255, 255, 255],//[32, 22, 20],
+  MounDiffuse: [80, 51, 20], //[255, 255, 255],//[32, 22, 20],
   FogColor: [25, 52, 82], //[255, 192, 199],
   FogDensity: 0.0005,
 
-  MounEdge: 0.2,
+  MounEdge: 0.08,
 
   CloudEdge: 0.8,
   CloudSize: 0.35,
@@ -152,7 +152,9 @@ const controls = {
   // Sky box paras
   distance: 400,
   inclination: 0.484,
-  azimuth: 0.2115,
+
+  azimuth: 0.25, //0.2115,
+
   luminance: 1.0,
   turbidity: 6.0,
 
@@ -189,6 +191,15 @@ const controls = {
 
   testAudio: TestAudio,
 
+  
+  FogColorb: [255, 237, 222],
+  LightColorb: [236, 220, 255],
+  SkyColorb: [253, 242, 255],
+
+  FlareColor: [255, 255, 255],
+
+  EdgePow: 0.8
+
   GodRayOffsetX: 0.0,
   GodRayOffsetY: 0.0,
   GodRayOffsetZ: 0.0
@@ -212,7 +223,7 @@ let terrain2: Terrain;
 // 1. directional light direction in deferred-render.glsl (X)
 // 2. sun position in shadow map (X)
 // 3. God ray light source position
-const sun_pos = vec3.fromValues(-1500, 280.0, -6000.0);
+const sun_pos = vec3.fromValues(0.0, 280.0, -6000.0);
 
 
 // Particles stuff
@@ -238,6 +249,13 @@ let moun_diffuse: Texture;
 let moun_normal: Texture;
 let moun_specular: Texture;
 
+function lerp(x: number, y: number, a: number)
+{
+  //x×(1−a)+y×a
+  var b = a / 5.0;
+  return x * (1.0 - b) + y * b;
+}
+
 var timer = {
   deltaTime: 0.0,
   startTime: 0.0,
@@ -257,7 +275,7 @@ function loadOBJText() {
   obj0 = readTextFile('resources/obj/wahoo.obj');
   obj1 = readTextFile('resources/obj/sword2.obj');
   obj2 = readTextFile('resources/obj/ribbon.obj');
-  obj3 = readTextFile('resources/obj/gear.obj');
+  obj3 = readTextFile('resources/obj/monument.obj');
 }
 
 
@@ -309,7 +327,7 @@ function loadScene() {
   scatter2 = new Scatter(obj2, vec3.fromValues(0, 0, 0), modelMatrix, randomnums, terrain);
   scatter2.create2();
 
-  num = 500.0;
+  num = 50.0;
   randomnums = new Array<number>();
   for(var j = 0; j < num; j++)
   {
@@ -318,7 +336,7 @@ function loadScene() {
   }
 
   mat4.identity(modelMatrix);
-  scatter1 = new Scatter(obj1, vec3.fromValues(0, 0, 0), modelMatrix, randomnums, terrain2);
+  scatter1 = new Scatter(obj3, vec3.fromValues(0, 0, 0), modelMatrix, randomnums, terrain);
   scatter1.create();
   
   // God ray sphere(it should be consistent with the sun in the scene)
@@ -401,6 +419,9 @@ function main() {
   mounDeferred.setupTexUnits(["tex_Color"]);
   mounDeferred.setupTexUnits(["tex_Normal"]);
   mounDeferred.setupTexUnits(["tex_Specular"]);
+  mounDeferred.setupTexUnits(["tex_Color2"]);
+  mounDeferred.setupTexUnits(["tex_Normal2"]);
+  mounDeferred.setupTexUnits(["tex_Specular2"]);
 
   const ribbonDeferred = new ShaderProgram([
     new Shader(gl.VERTEX_SHADER, require('./shaders/ribbon-vert.glsl')),
@@ -472,6 +493,11 @@ function main() {
     renderer.setGodRayNumSamples(controls.NumSamples);
   }
   setGodRaySamples();
+
+  function setGodRayScreen(){
+    renderer.setGodRayScreen(canvas.width, canvas.height, controls);
+  }
+  setGodRayScreen();
 
   function setGodRayCombineParas(){
     renderer.setGodRayCombineParas(controls.GodRayOriWeight, controls.GodRayHighLightWeight);
@@ -606,6 +632,8 @@ function main() {
   gui.add(controls, 'ParticleSize', -1, 1).step(0.01);
   gui.add(controls, 'ParticleEdge', 0, 5).step(0.01);
   gui.addColor(controls, 'ParticleColor');
+  gui.addColor(controls, 'FlareColor');
+  gui.add(controls, 'EdgePow', 0, 5).step(0.01);
 
   // -------------------------------------------------------------------
   // TODO : Add camera fade effect keys here!
@@ -675,7 +703,11 @@ function main() {
     mounDeferred.bindTexToUnit("tex_Color", moun_diffuse, 5);
     mounDeferred.bindTexToUnit("tex_Normal", moun_normal, 6);
     mounDeferred.bindTexToUnit("tex_Specular", moun_specular, 7);
-    mounDeferred.setSandDiffuse(vec4.fromValues(controls.MounDiffuse[0]/255, controls.MounDiffuse[1]/255, controls.MounDiffuse[2]/255, 1.0));
+    mounDeferred.bindTexToUnit("tex_Color2", terrain_diffuse, 0);
+    mounDeferred.bindTexToUnit("tex_Normal2", terrain_normal, 1);
+    mounDeferred.bindTexToUnit("tex_Specular2", terrain_specular, 2);
+    mounDeferred.setAmount(controls.EdgePow);
+    //mounDeferred.setSandDiffuse(vec4.fromValues(controls.MounDiffuse[0]/255, controls.MounDiffuse[1]/255, controls.MounDiffuse[2]/255, 1.0));
     mounDeferred.setSandSpecular(vec4.fromValues(controls.SandDiffuse[0]/255, controls.SandDiffuse[1]/255, controls.SandDiffuse[2]/255, 1.0));
     mounDeferred.setSandEdge(controls.MounEdge);
     mounDeferred.setCloudEdge(controls.CloudEdge);
@@ -742,8 +774,17 @@ function main() {
       terrainDeferred.setGridSize(controls.GridSize);
       renderer.renderToGBuffer(camera, terrainDeferred, [terrain], water); 
       terrainDeferred.setGridSize(controls.GridSize2);
-      renderer.renderToGBuffer(camera, terrainDeferred, [terrain2], water);   
-      renderer.renderToGBuffer(camera, mounDeferred, [scatter0, scatter1], water);  
+      renderer.renderToGBuffer(camera, terrainDeferred, [terrain2], water);  
+      mounDeferred.bindTexToUnit("tex_Color", moun_diffuse, 5);
+      mounDeferred.bindTexToUnit("tex_Normal", moun_normal, 6);
+      mounDeferred.bindTexToUnit("tex_Specular", moun_specular, 7);
+      mounDeferred.setSandDiffuse(vec4.fromValues(1.0, 1.0, 1.0, 1.0));
+      renderer.renderToGBuffer(camera, mounDeferred, [scatter0], water); 
+      mounDeferred.bindTexToUnit("tex_Color", terrain_diffuse, 0);
+      mounDeferred.bindTexToUnit("tex_Normal", terrain_normal, 1);
+      mounDeferred.bindTexToUnit("tex_Specular", terrain_specular, 2);  
+      mounDeferred.setSandDiffuse(vec4.fromValues(controls.MounDiffuse[0]/255, controls.MounDiffuse[1]/255, controls.MounDiffuse[2]/255, 1.0));
+      renderer.renderToGBuffer(camera, mounDeferred, [scatter1], water);
       renderer.renderToGBuffer(camera, ribbonDeferred, [scatter2], water); 
     
       // sky box

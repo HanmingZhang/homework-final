@@ -20,6 +20,9 @@ out vec4 fragColor[3]; // The data in the ith index of this array of outputs
 uniform sampler2D tex_Color;
 uniform sampler2D tex_Normal;
 uniform sampler2D tex_Specular;
+uniform sampler2D tex_Color2;
+uniform sampler2D tex_Normal2;
+uniform sampler2D tex_Specular2;
 // uniform sampler2D sand_Normal;
 // uniform sampler2D sand_Normal2;
 
@@ -31,6 +34,8 @@ uniform float u_FlowSpeed;
 uniform vec4 u_SandDiffuse;
 uniform vec4 u_SandSpecular;
 uniform float u_Time;
+
+uniform float u_Amount;
 
 
 vec3 applyNormalMap(vec3 geomnor, vec3 normap) {
@@ -63,14 +68,22 @@ void main() {
     vec3 Albedo = texture(tex_Color, fs_UV).rgb;
     vec3 Normal = texture(tex_Normal, fs_UV).rgb;
     vec3 Specular = texture(tex_Specular, fs_UV).rgb;
+    vec3 Albedo2 = texture(tex_Color2, fs_UV).rgb;
+    vec3 Normal2 = texture(tex_Normal2, fs_UV).rgb;
+    vec3 Specular2 = texture(tex_Specular2, fs_UV).rgb;
 
     vec3 Normal_WS = applyNormalMap(fs_Nor.xyz, normalize(Normal * 2.0 - vec3(1.0)));
+    vec3 Normal_WS2 = applyNormalMap(fs_Nor.xyz, normalize(Normal2 * 2.0 - vec3(1.0)));
 
     float depth = 1.0 - clamp(fs_Dep + u_SandEdge, 0.0, 1.0);
     depth = smoothstep(0.0, 1.0, depth);
-    vec3 finalcolor = mix(u_SandDiffuse.rgb, u_SandSpecular.rgb, depth) * Albedo;
+    depth = pow(depth, u_Amount);
+    vec3 finalAlbedo = mix(Albedo, Albedo2, depth);
+    vec3 finalcolor = mix(u_SandDiffuse.rgb, u_SandSpecular.rgb, depth) * finalAlbedo;
+    vec3 finaSpecular = mix(Specular, Specular2, depth);
+    vec3 finalNormal = mix(Normal_WS, Normal_WS2, depth);
 
-    fragColor[0] = vec4(Normal_WS, fs_Pos.z);
-    fragColor[1] = vec4(fs_Pos.xyz, Specular.x * 3.0);
+    fragColor[0] = vec4(finalNormal, fs_Pos.z);
+    fragColor[1] = vec4(fs_Pos.xyz, finaSpecular.x * 3.0);
     fragColor[2] = vec4(finalcolor * Albedo * 2.3, fs_Shadow);
 }

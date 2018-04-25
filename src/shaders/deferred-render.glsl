@@ -66,7 +66,7 @@ const mat4 texUnitConverter = mat4(0.5, 0.0, 0.0, 0.0,
 
 // SHOULD BE CONSISTENT WITH SUN POS in main.ts
 // directional light
-const vec3 directional_lighting_dir = vec3(0, 50.0, -50.0); 
+const vec3 directional_lighting_dir = vec3(0, 50.0, -50.0); //-1500, 280.0, -6000.0
 // point light position
 // const vec3 point_light_pos = vec3(0.0, 50.0, -50.0);
 
