@@ -32,8 +32,8 @@ export interface CAMERA_SEQUENCE{
 };
 
 
-const camera = new Camera(vec3.fromValues(-3.44, 71.84, 115.52), vec3.fromValues(-3.44, 51.84, -4.47));
-const cameraDemoModeLength = 66000; // milliseconds (66 seconds)
+const camera = new Camera(vec3.fromValues(-3.44, 71.84, 115.52), vec3.fromValues(-3.44, 51.84, -4.47)); // initial camera position
+const cameraDemoModeLength = 70000; // milliseconds change to seconds
 var renderer: OpenGLRenderer;
 
 function startDemoCam(){
@@ -609,17 +609,24 @@ function main() {
 
   // -------------------------------------------------------------------
   // TODO : Add camera fade effect keys here!
-  camera.addDemoCamFadeEffect(20.0, 30.0) // 20 - 30s
+  camera.addDemoCamFadeEffect(12.0, 18.0);
+  camera.addDemoCamFadeEffect(51.0, 59.0) // 20 - 30s
+  
 
   // TODO : Add key frame camera info
-  camera.addDemoCamPos({startTime: 2.0, endTime: 25.0, startPos: vec3.fromValues(80.0, 80.0, 100.0), endPos: vec3.fromValues(80.0, 100.0, 80.0)});
-  camera.addDemoCamTarget({startTime: 2.0, endTime: 25.0, startPos: vec3.fromValues(-20.0, 0, 0), endPos: vec3.fromValues(10, 0, 0)});
+  camera.addDemoCamPos({startTime: 2.0, endTime: 15.0, startPos: vec3.fromValues(80.0, 80.0, 100.0), endPos: vec3.fromValues(80.0, 100.0, 80.0)});
+  camera.addDemoCamTarget({startTime: 2.0, endTime: 15.0, startPos: vec3.fromValues(-20.0, 0, 0), endPos: vec3.fromValues(10, 0, 0)});
 
-  camera.addDemoCamPos({startTime: 25.0, endTime: 45.0, startPos: vec3.fromValues(0.0, 63.0, 10.0), endPos: vec3.fromValues(0.0, 88.0, 10.0)});
-  camera.addDemoCamTarget({startTime: 25.0, endTime: 45.0, startPos: vec3.fromValues(0.0, 40.0, -300.0), endPos: vec3.fromValues(0, 75.0, -330.0)});
+  camera.addDemoCamPos({startTime: 15.0, endTime: 30.0, startPos: vec3.fromValues(0.0, 63.0, 10.0), endPos: vec3.fromValues(0.0, 88.0, 10.0)});
+  camera.addDemoCamTarget({startTime: 15.0, endTime: 30.0, startPos: vec3.fromValues(0.0, 40.0, -300.0), endPos: vec3.fromValues(0, 75.0, -330.0)});
 
-  camera.addDemoCamPos({startTime: 45.0, endTime: 63.0, startPos: vec3.fromValues(-50, 115.0, 65.0), endPos: vec3.fromValues(40, 55.0, 20.0)});
-  camera.addDemoCamTarget({startTime: 45.0, endTime: 63.0, startPos: vec3.fromValues(0, 50, 0), endPos: vec3.fromValues(15, 55, 0)});
+  camera.addDemoCamPos({startTime: 30.0, endTime: 55.0, startPos: vec3.fromValues(-35, 90.0, 125.0), endPos: vec3.fromValues(270, 140.0, 285.0)});
+  camera.addDemoCamTarget({startTime: 30.0, endTime: 55.0, startPos: vec3.fromValues(20, 30, 0), endPos: vec3.fromValues(80, 10, -30)});
+
+  camera.addDemoCamPos({startTime: 55.0, endTime: 70.0, startPos: vec3.fromValues(-50, 115.0, 65.0), endPos: vec3.fromValues(40, 55.0, 20.0)});
+  camera.addDemoCamTarget({startTime: 55.0, endTime: 70.0, startPos: vec3.fromValues(0, 50, 0), endPos: vec3.fromValues(0, 50, 0)});
+
+
 
   gui.add(controls, 'DemoMode'); // click to turn on demo camera mode
 
@@ -706,8 +713,8 @@ function main() {
     timer.updateTime();
     renderer.updateTime(timer.deltaTime, timer.currentTime, controls);
     if(camera.camMode == CAMERA_MODE.DEMO_MODE){
-      // timer multiple 0.0005 to get deltaTime so we multiple back 2.0 to 
-      // make 1000 ms to 1s
+      // timer scalar in updateTime() is 0.0005. 
+      // To get accurate deltaTime,  we multiple back 2.0 to make 1000 ms to 1s
       camera.updateDemoCamTime(2.0 * timer.deltaTime);
     }
     
