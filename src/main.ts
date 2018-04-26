@@ -227,7 +227,6 @@ const sun_pos = vec3.fromValues(0.0, 280.0, -6000.0);
 var particle_transform : ShaderProgram;
 
 // TODO: add scene's stuff here
-let obj0: string;
 let obj1: string;
 let obj2: string;
 let obj3: string;
@@ -269,7 +268,6 @@ var timer = {
 }
 
 function loadOBJText() {
-  obj0 = readTextFile('resources/obj/wahoo.obj');
   obj1 = readTextFile('resources/obj/sword2.obj');
   obj2 = readTextFile('resources/obj/ribbon.obj');
   obj3 = readTextFile('resources/obj/monument.obj');
