@@ -198,7 +198,7 @@ const controls = {
 
   FlareColor: [255, 255, 255],
 
-  EdgePow: 0.8
+  EdgePow: 0.8,
 
   GodRayOffsetX: 0.0,
   GodRayOffsetY: 0.0,
@@ -311,7 +311,7 @@ function loadScene() {
     modelMatrix, vec4.fromValues(0.0, 100.0, 0.0, 0.0), controls.GridSize - 10 );
   terrain2.create();
 
-  var num = 100.0;
+  var num = 90.0;
   var randomnums: Array<number> = [];
   for(var j = 0; j < num; j++)
   {
@@ -327,7 +327,7 @@ function loadScene() {
   scatter2 = new Scatter(obj2, vec3.fromValues(0, 0, 0), modelMatrix, randomnums, terrain);
   scatter2.create2();
 
-  num = 50.0;
+  num = 25.0;
   randomnums = new Array<number>();
   for(var j = 0; j < num; j++)
   {
