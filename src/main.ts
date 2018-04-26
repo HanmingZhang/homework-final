@@ -87,7 +87,7 @@ const controls = {
   Exposure: 2.05,
   NumSamples: 100,
   GodRayOriWeight: 0.8, //0.8,
-  GodRayHighLightWeight: 0.8, //1.7,
+  GodRayHighLightWeight: 1.25, //1.7,
 
   // Fade Effect
   DemoMode: startDemoCam, 
