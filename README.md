@@ -135,7 +135,7 @@ The goal of this project is to create an environment that feels responsive and a
 	- Flare: Modified from [here](https://www.shadertoy.com/view/4sX3Rs);
 - **Final Color Grading**: Light color, fog color changed when the inclination of the skybox changed;
 
-### Bloop
+### Blooper
  ![](img/bloop.jpg)
 
 
