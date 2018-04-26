@@ -8,7 +8,7 @@
 
 ## Demo
 
-Since the whole demo scene is procedurally generated, **please wait for around 30s everytime your load it. If your browse pop up "not response" window, please click "wait".**
+Since the whole demo scene is procedurally generated, **please wait for around 30s everytime your load it. If your browser pop up "not response" window, please click "wait".**
 
 **Please remeber to press the "DemoMode" button!**
 
@@ -81,14 +81,14 @@ The goal of this project is to create an environment that feels responsive and a
 **Hanming Zhang**
 
 - **Sky box**:
-	We use a Cubic sky box in our scene and the sky itself is procedurally generated in shader.
+	We use a cubic sky box in our scene and the sky itself is procedurally generated in fragment shader.
 - **ShadowMap**:
 	Here is a screenshot of shadow:
 	![](./img/shadow.jpg)
 
-	Shadow map is pre-baked when our scene is initialized so that we can save some time when render a frame. For some implemetation details, I refer to [WebGL Tutorial: Directional Shadow Mapping without extensions](http://www.chinedufn.com/webgl-shadow-mapping-tutorial/).
+	Shadow map is pre-baked when our scene is initialized so that we can save a lot of time rendering each frame. For some implemetation details, I refer to [WebGL Tutorial: Directional Shadow Mapping without extensions](http://www.chinedufn.com/webgl-shadow-mapping-tutorial/).
 - **Cinematic Camera**:
-	It's basically a time-driven key-frame simple system. In the scene initialization stage, we set several key-frames, and linear lerp camera's position and target position. Also, during the transition, we use some fade in/out post processing effect to make it more cinematic
+	It's basically a simple time-driven key-frame system. In the scene initialization stage, we set several key-frames, and linear lerp camera's position and target position. Also, during the transition, we use some fade in/out post processing effect to make it more cinematic.
 - **Water**:
 	An independent pass is used to render a reflection frame. We save it in our frame buffer and use it as a texture in the following water rendering pass. Here is the pure refection effects and water we got:
 
@@ -102,7 +102,7 @@ The goal of this project is to create an environment that feels responsive and a
 	Here is a basic view of our pipeline:
 	![](./img/pipeline.jpg)
 - **Particle System**:
-	Basic we use particles(0.1 million) to simulate sands effect on the terrain surface. Here is a screen shot of only particles:
+	We use particles(0.1 million) to simulate sands effect on the terrain surface. And WebGL 2.0 transform feedback(thanks to great [WebGL 2.0 Samples](http://webglsamples.org/WebGL2Samples/)) is used to more efficiently update each particle's information(Position / Life time / whether it's out of bound...) Here is a screen shot of only particles:
 	![](./img/particles.gif)
 - **Audio**
 
@@ -147,7 +147,7 @@ The goal of this project is to create an environment that feels responsive and a
 - [FilmNoise](https://www.shadertoy.com/view/4sXSWs)
 - [Flare](https://www.shadertoy.com/view/4sX3Rs)
 - [WebGL Tutorial: Directional Shadow Mapping without extensions](http://www.chinedufn.com/webgl-shadow-mapping-tutorial/)
-
+- [WebGL 2.0 Samples](http://webglsamples.org/WebGL2Samples/)
 
 
 
