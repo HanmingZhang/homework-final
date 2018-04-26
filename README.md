@@ -4,6 +4,8 @@
 - Hanming Zhang
 - Linshen Xiao
 
+![](img/5.png)
+
 ## Demo
 
 Since the whole demo scene is procedurally generated, **please wait for around 30s everytime your load it. If your browse pop up "not response" window, please click "wait".**
@@ -23,7 +25,7 @@ The goal of this project is to create an environment that feels responsive and a
 
 |DreamTank|Jounery|Unlimited Blade Works|
 |--------------|--------------|--------------|
-|![](img/DreamTank.jpg)|![](img/Jounery.png)|![](img/unlimited.gif)|
+|![](img/DreamTank.jpg)|![](img/Jounery.png)|![](img/Unlimited.png)|
 
 ### Screenshots
  ![](img/)
@@ -120,6 +122,18 @@ The goal of this project is to create an environment that feels responsive and a
 
 ### Bloop
  ![](img/bloop.jpg)
+
+|![](img/1.png)
+
+|![](img/2.png)
+
+|![](img/8.png)
+
+|![](img/4.png)
+
+|![](img/10.png)
+
+|![](img/11.png)
 
 ## Resources
 
