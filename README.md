@@ -8,7 +8,9 @@
 
 ## Demo
 
-Since the whole demo scene is procedurally generated, **please wait for around 30s everytime your load it. If your browser pop up "not response" window, please click "wait".**
+We test and develop on the lastest version Chrome browser. WebGL 2.0 required.
+
+Since the whole demo scene is procedurally generated, **please wait for around 30s everytime you load it. If your browser pop up "not response" window, please click "wait".**
 
 **Please remeber to press the "DemoMode" button!**
 
