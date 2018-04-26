@@ -9,6 +9,9 @@
 ## Demo
 
 Since the whole demo scene is procedurally generated, **please wait for around 30s everytime your load it. If your browse pop up "not response" window, please click "wait".**
+
+**Please remeber to press the "DemoMode" button!**
+
 - [Online Demo Link](https://githublsx.github.io/homework-5-shape-grammar-city-githublsx/)
 
 ## Overview
@@ -27,8 +30,18 @@ The goal of this project is to create an environment that feels responsive and a
 |--------------|--------------|--------------|
 |![](img/DreamTank.jpg)|![](img/Jounery.png)|![](img/Unlimited.png)|
 
-### Screenshots
- ![](img/)
+### More Screenshots
+![](img/1.png)
+
+![](img/2.png)
+
+![](img/8.png)
+
+![](img/4.png)
+
+![](img/10.png)
+
+![](img/11.png)
 
 ### What we have done
 
@@ -123,17 +136,6 @@ The goal of this project is to create an environment that feels responsive and a
 ### Bloop
  ![](img/bloop.jpg)
 
-|![](img/1.png)
-
-|![](img/2.png)
-
-|![](img/8.png)
-
-|![](img/4.png)
-
-|![](img/10.png)
-
-|![](img/11.png)
 
 ## Resources
 

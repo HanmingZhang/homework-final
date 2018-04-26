@@ -74,7 +74,7 @@ function TestAudio(){
 // Define an object with application parameters and button callbacks
 const controls = {
   // Post-process type
-  PostProcessingType: 'Null',
+  PostProcessingType: 'Default',
 
   // Bloom
   BloomOriWeight: 0.8,
@@ -628,7 +628,6 @@ function main() {
   f8.add(controls, 'vignetteintensity', 0.0, 32.0).step(0.01);
   f8.add(controls, 'vignettepow', 0.0, 1.0).step(0.01);
   f8.addColor(controls, 'FlareColor');
-  gui.add(controls, 'stop');
   var f9 = gui.addFolder('Particle');
   f9.add(controls, 'ParticleSize', -1, 1).step(0.01);
   f9.add(controls, 'ParticleEdge', 0, 5).step(0.01);
@@ -661,16 +660,13 @@ function main() {
   camera.addDemoCamTarget({startTime: 55.0, endTime: 70.0, startPos: vec3.fromValues(0, 50, 0), endPos: vec3.fromValues(0, 50, 0)});
 
 
-
   gui.add(controls, 'DemoMode'); // click to turn on demo camera mode
-
 
 
   // -------------------------------------------------------------------
   // Audio test GUI
   gui.add(controls, 'pauseAudio');
   
-
 
   // -------------------------------------------------------------------
   // shadow map debug quad 
@@ -679,6 +675,9 @@ function main() {
     new Shader(gl.FRAGMENT_SHADER, require('./shaders/quad-frag.glsl')),
   ]);
   gui.add(controls, 'debugShadow');
+
+  //
+  gui.add(controls, 'stop');
 
   // Bake shadow map 
   let shadow_sun_pos = vec3.fromValues(0, 400.0, -300.0);
