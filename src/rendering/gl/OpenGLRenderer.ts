@@ -28,7 +28,7 @@ var currentSourceIdx = 0; // ping-pong buffer index
 
 const ParticleNum = 100000;
 
-const shadowDepthTextureSize = 1024; // This one should be consistent with that in deferred-render.glsl
+const shadowDepthTextureSize = 2048; // This one should be consistent with that in deferred-render.glsl
 
 // Sky box/cube
 let SkyBox: Cube;
@@ -402,6 +402,10 @@ class OpenGLRenderer {
 
   setWaterDistortionScale(scale: number){
     this.deferredShader.setWaterDistortionScale(scale);
+  }
+
+  setShadowMoverScalar(scale: number){
+    this.deferredShader.setShadowMoverScalar(scale);
   }
 
   setClearColor(r: number, g: number, b: number, a: number) {
@@ -848,8 +852,116 @@ class OpenGLRenderer {
 
     if(postProcessType != -1){
 
+      // // 1. God ray scattering effect
+      // gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[1]);
+      // gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+      // gl.disable(gl.DEPTH_TEST);
+      // gl.disable(gl.BLEND);
+      // gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      // gl.activeTexture(gl.TEXTURE0);
+      // gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[0]); // this one is from render occulusion
+
+      // thisPost32Passes[0].draw();
+      // gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      
+
+      // // 2. God ray scattering effect combine with original view
+      // gl.bindFramebuffer(gl.FRAMEBUFFER, this.godrayBuffer);
+      // gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+      // gl.disable(gl.DEPTH_TEST);
+      // gl.disable(gl.BLEND);
+      // gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      // gl.activeTexture(gl.TEXTURE0);
+      // gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[1]);
+      // gl.activeTexture(gl.TEXTURE1);
+      // gl.bindTexture(gl.TEXTURE_2D, this.originalTargetFromGBuffer);
+      
+      // thisPost32Passes[1].draw();
+      // gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+
+      // // 3. Bloom brightness filter
+      // gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[0]);
+      // gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+      // gl.disable(gl.DEPTH_TEST);
+      // gl.disable(gl.BLEND);
+      // gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      // gl.activeTexture(gl.TEXTURE0);
+      // gl.bindTexture(gl.TEXTURE_2D, this.godrayTarget);
+      
+      // thisPost32Passes[2].draw();
+      // gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      
+
+      // // 4. Bloom horizontal Gaussian Blur
+      // gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[1]);
+      // gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+      // gl.disable(gl.DEPTH_TEST);
+      // gl.disable(gl.BLEND);
+      // gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      // gl.activeTexture(gl.TEXTURE0);
+      // gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[0]);
+      
+      // thisPost32Passes[3].draw();
+      // gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      
+
+      // // 5. Bloom vertical Gaussian Blur
+      // gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[0]);
+      // gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+      // gl.disable(gl.DEPTH_TEST);
+      // gl.disable(gl.BLEND);
+      // gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      // gl.activeTexture(gl.TEXTURE0);
+      // gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[1]);
+      
+      // thisPost32Passes[4].draw();
+      // gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+      // // 6. Bloom combine
+      // gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[1]);
+      // gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+      // gl.disable(gl.DEPTH_TEST);
+      // gl.disable(gl.BLEND);
+      // gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      // gl.activeTexture(gl.TEXTURE0);
+      // gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[0]);
+      // gl.activeTexture(gl.TEXTURE1);
+      // gl.bindTexture(gl.TEXTURE_2D, this.godrayTarget);
+
+      // thisPost32Passes[5].draw();
+      // gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+
+      // // 7. Old film effect
+      // // Interactive camera mode : render to screen
+      // if(this.camMode == CAMERA_MODE.INTERACTIVE_MODE){
+      //   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      // }
+      // // Demo camera mode : render to buffer
+      // else{
+      //   gl.bindFramebuffer(gl.FRAMEBUFFER, this.post8Buffers[0]);
+      // }
+      // gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+      // gl.disable(gl.DEPTH_TEST);
+      // gl.disable(gl.BLEND);
+      // gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      // gl.activeTexture(gl.TEXTURE0);
+      // gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[1]);
+
+      // thisPost32Passes[6].draw();
+      // gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+
       // 1. God ray scattering effect
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[1]);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.godrayBuffer);
       gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
       gl.disable(gl.DEPTH_TEST);
       gl.disable(gl.BLEND);
@@ -862,23 +974,7 @@ class OpenGLRenderer {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       
 
-      // 2. God ray scattering effect combine with original view
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this.godrayBuffer);
-      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-      gl.disable(gl.DEPTH_TEST);
-      gl.disable(gl.BLEND);
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[1]);
-      gl.activeTexture(gl.TEXTURE1);
-      gl.bindTexture(gl.TEXTURE_2D, this.originalTargetFromGBuffer);
-      
-      thisPost32Passes[1].draw();
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-
-
-      // 3. Bloom brightness filter
+      // 2. Bloom brightness filter
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[0]);
       gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
       gl.disable(gl.DEPTH_TEST);
@@ -886,7 +982,7 @@ class OpenGLRenderer {
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
       gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, this.godrayTarget);
+      gl.bindTexture(gl.TEXTURE_2D, this.originalTargetFromGBuffer);
       
       thisPost32Passes[2].draw();
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -929,9 +1025,25 @@ class OpenGLRenderer {
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[0]);
       gl.activeTexture(gl.TEXTURE1);
-      gl.bindTexture(gl.TEXTURE_2D, this.godrayTarget);
+      gl.bindTexture(gl.TEXTURE_2D, this.originalTargetFromGBuffer);
 
       thisPost32Passes[5].draw();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+
+      // 2. God ray scattering effect combine with original view
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[0]);
+      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+      gl.disable(gl.DEPTH_TEST);
+      gl.disable(gl.BLEND);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.godrayTarget);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[1]);
+      
+      thisPost32Passes[1].draw();
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
 
@@ -950,7 +1062,7 @@ class OpenGLRenderer {
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
       gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[1]);
+      gl.bindTexture(gl.TEXTURE_2D, this.post32Targets[0]);
 
       thisPost32Passes[6].draw();
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -1173,8 +1285,8 @@ class OpenGLRenderer {
 
     this.shadowDepthTexture = gl.createTexture() // this is the final shadow map render
     gl.bindTexture(gl.TEXTURE_2D, this.shadowDepthTexture)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); // wrap to edge
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); // wrap to edge
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, shadowDepthTextureSize, shadowDepthTextureSize, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
@@ -1193,13 +1305,13 @@ class OpenGLRenderer {
 
     // create light "camera"
     let lightProjectionMatrix = mat4.create();
-    let orthoCamWidth = 200.0; //50.0; // TODO : adjust this value to change shadow size
+    let orthoCamWidth = 270.0; 
     let near = 0.1;
     let far = 5000.0;
     mat4.ortho(lightProjectionMatrix, -orthoCamWidth, orthoCamWidth , -orthoCamWidth / aspectRatio, orthoCamWidth / aspectRatio, near, far);
 
     let lightViewMatrix = mat4.create();
-    mat4.lookAt(lightViewMatrix, vec3.fromValues(lightPos[0], lightPos[1], lightPos[2]), vec3.fromValues(0, 0, 0), vec3.fromValues(0, 1, 0));
+    mat4.lookAt(lightViewMatrix, vec3.fromValues(lightPos[0], lightPos[1], lightPos[2]), vec3.fromValues(0.0, 0.0, 50.0), vec3.fromValues(0, 1, 0));
 
     this.lightViewProjMatrix = mat4.create();
     mat4.multiply(this.lightViewProjMatrix, lightProjectionMatrix, lightViewMatrix);  

@@ -109,6 +109,8 @@ class ShaderProgram {
 
   unifParticleTexture: WebGLUniformLocation;
 
+  unifShadowMoverScalar: WebGLUniformLocation;
+
   constructor(shaders: Array<Shader>, isTransformFeedback: boolean = false, varyings: string[] = []) {
     this.prog = gl.createProgram();
 
@@ -209,6 +211,8 @@ class ShaderProgram {
     this.unifParticleRadius = gl.getUniformLocation(this.prog, "u_ParticleRadius");
 
     this.unifParticleTexture = gl.getUniformLocation(this.prog, "u_ParticleTexture");
+
+    this.unifShadowMoverScalar = gl.getUniformLocation(this.prog, "u_ShadowMoverScalar");
 
     this.unifTexUnits = new Map<string, WebGLUniformLocation>();
   }
@@ -650,6 +654,13 @@ class ShaderProgram {
     this.use();
     if (this.unifParticleTexture !== -1) {
       gl.uniform1i(this.unifParticleTexture, i);
+    }
+  }
+
+  setShadowMoverScalar(s: number){
+    this.use();
+    if (this.unifShadowMoverScalar !== -1) {
+      gl.uniform1f(this.unifShadowMoverScalar, s);
     }
   }
 

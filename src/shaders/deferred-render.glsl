@@ -43,7 +43,7 @@ uniform vec4 u_Color;
 uniform float u_CloudSize;
 uniform float u_CloudEdge;
 
-
+uniform float u_ShadowMoverScalar;
 
 uniform sampler2D u_shadowTexture;
 
@@ -57,7 +57,7 @@ uniform sampler2D u_ParticleTexture;
 uniform float u_waterSize;
 uniform float u_waterDistortionScale;
 
-const float shadowDepthTextureSize = 1024.0; // This one should be consistent with that in OpenGLRenderer.ts
+const float shadowDepthTextureSize = 2048.0; // This one should be consistent with that in OpenGLRenderer.ts
 
 const mat4 texUnitConverter = mat4(0.5, 0.0, 0.0, 0.0, 
                                    0.0, 0.5, 0.0, 0.0, 
@@ -158,7 +158,7 @@ void main() {
 		// -------------------------------------------------------------
 		// Shadow map portion
 		vec3 shadowPos;
-		if(materialType > -0.1 && materialType < 1.1){
+		if(materialType > -0.1 && materialType < 25.1){
 			vec4 tmp = texUnitConverter * u_lightViewProj * inverse(u_View) * vec4(gb1.xyz, 1.0);
 			shadowPos = tmp.xyz;
 		}
@@ -168,7 +168,7 @@ void main() {
 
 		 
 		vec3 fragmentDepth = shadowPos;
-		float shadowAcneRemover = 0.000001;
+		float shadowAcneRemover = u_ShadowMoverScalar * 0.000001;
 		fragmentDepth.z -= shadowAcneRemover;
 
 		float texelSize = 1.0 / shadowDepthTextureSize;

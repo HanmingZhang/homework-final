@@ -60,17 +60,12 @@ function printCamInfo(){
 var audio1: HTMLAudioElement;
 
 function TestAudio(){
-  if(audio1.ended){
-    audio1.play();
-  }
-  else{
     if(audio1.paused){
       audio1.play();
     }
     else{
       audio1.pause();
     }
-  }
 }
 
 
@@ -189,7 +184,7 @@ const controls = {
   ParticleEdge: 2.5,
   ParticleColor: [255, 225, 172], //[238, 255, 114], //[255, 225, 172],
 
-  testAudio: TestAudio,
+  pauseAudio: TestAudio,
 
   
   FogColorb: [255, 237, 222],
@@ -202,7 +197,9 @@ const controls = {
 
   GodRayOffsetX: 0.0,
   GodRayOffsetY: 0.0,
-  GodRayOffsetZ: 0.0
+  GodRayOffsetZ: 0.0,
+
+  shadowMoverScalar: -350.0,
 };
 
 
@@ -371,6 +368,9 @@ function main() {
 
   // get audio stuff
   audio1 = <HTMLAudioElement> document.getElementById('audio1');
+  audio1.loop = true;
+  audio1.play();
+
 
   // get canvas and webgl context
   const canvas = <HTMLCanvasElement> document.getElementById('canvas');
@@ -635,6 +635,13 @@ function main() {
   gui.addColor(controls, 'FlareColor');
   gui.add(controls, 'EdgePow', 0, 5).step(0.01);
 
+  //
+  function setShadowMoverScalar() {
+    renderer.setShadowMoverScalar(controls.shadowMoverScalar);
+  }
+  setShadowMoverScalar();
+  gui.add(controls, 'shadowMoverScalar', -1000, 1000.0).step(1.0).onChange(setShadowMoverScalar);
+
   // -------------------------------------------------------------------
   // TODO : Add camera fade effect keys here!
   camera.addDemoCamFadeEffect(12.0, 18.0);
@@ -662,7 +669,7 @@ function main() {
 
   // -------------------------------------------------------------------
   // Audio test GUI
-  gui.add(controls, 'testAudio');
+  gui.add(controls, 'pauseAudio');
   
 
 
@@ -675,8 +682,8 @@ function main() {
   gui.add(controls, 'debugShadow');
 
   // Bake shadow map 
-  let shadow_sun_pos = vec3.fromValues(0, 50.0, -50.0);
-  renderer.renderShadow(shadow_sun_pos, window.innerWidth / window.innerHeight, [scatter0]);
+  let shadow_sun_pos = vec3.fromValues(0, 400.0, -300.0);
+  renderer.renderShadow(shadow_sun_pos, window.innerWidth / window.innerHeight, [scatter0, scatter1]);
   // renderer.renderShadow(sun_pos, window.innerWidth / window.innerHeight, [mesh0, scatter0]);
   
 
@@ -780,9 +787,9 @@ function main() {
       mounDeferred.bindTexToUnit("tex_Specular", moun_specular, 7);
       mounDeferred.setSandDiffuse(vec4.fromValues(1.0, 1.0, 1.0, 1.0));
       renderer.renderToGBuffer(camera, mounDeferred, [scatter0], water); 
-      mounDeferred.bindTexToUnit("tex_Color", terrain_diffuse, 0);
-      mounDeferred.bindTexToUnit("tex_Normal", terrain_normal, 1);
-      mounDeferred.bindTexToUnit("tex_Specular", terrain_specular, 2);  
+      // mounDeferred.bindTexToUnit("tex_Color", terrain_diffuse, 0);
+      // mounDeferred.bindTexToUnit("tex_Normal", terrain_normal, 1);
+      // mounDeferred.bindTexToUnit("tex_Specular", terrain_specular, 2);  
       mounDeferred.setSandDiffuse(vec4.fromValues(controls.MounDiffuse[0]/255, controls.MounDiffuse[1]/255, controls.MounDiffuse[2]/255, 1.0));
       renderer.renderToGBuffer(camera, mounDeferred, [scatter1], water);
       renderer.renderToGBuffer(camera, ribbonDeferred, [scatter2], water); 
