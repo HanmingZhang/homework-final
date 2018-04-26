@@ -78,7 +78,7 @@ const controls = {
 
   // Bloom
   BloomOriWeight: 0.8,
-  BloomHighLightWeight: 0.7, //2.5,
+  BloomHighLightWeight: 0.5, //2.5,
 
   // God ray
   Density: 0.91,
@@ -86,8 +86,8 @@ const controls = {
   Decay: 0.97,
   Exposure: 2.05,
   NumSamples: 100,
-  GodRayOriWeight: 1.0, //0.8,
-  GodRayHighLightWeight: 1.0, //1.7,
+  GodRayOriWeight: 0.8, //0.8,
+  GodRayHighLightWeight: 0.8, //1.7,
 
   // Fade Effect
   DemoMode: startDemoCam, 
@@ -121,7 +121,7 @@ const controls = {
 
   SandDiffuse: [227, 208, 147], //[255, 196, 155],//[237.0, 201.0, 175.0],
   SandSpecular: [255, 225, 155], //[155, 237, 255],//[255.0, 245.0, 231.0],
-  MounDiffuse: [80, 51, 20], //[255, 255, 255],//[32, 22, 20],
+  MounDiffuse: [32, 22, 20],//[80, 51, 20], //[255, 255, 255],//[32, 22, 20],
   FogColor: [25, 52, 82], //[255, 192, 199],
   FogDensity: 0.0005,
 
@@ -600,6 +600,7 @@ function main() {
   var f5 = gui.addFolder('Mounments');
   f5.addColor(controls, 'MounDiffuse');
   f5.add(controls, 'MounEdge', 0, 1).step(0.01);
+  f5.add(controls, 'EdgePow', 0, 5).step(0.01);
   var f5 = gui.addFolder('CloudShadow');
   f5.add(controls, 'CloudSize', -1, 1).step(0.01);
   f5.add(controls, 'CloudEdge', 0, 5).step(0.01);
@@ -628,12 +629,12 @@ function main() {
   f8.add(controls, 'NoiseStrength', 0.0, 32.0).step(0.01);
   f8.add(controls, 'vignetteintensity', 0.0, 32.0).step(0.01);
   f8.add(controls, 'vignettepow', 0.0, 1.0).step(0.01);
+  f8.addColor(controls, 'FlareColor');
   gui.add(controls, 'stop');
-  gui.add(controls, 'ParticleSize', -1, 1).step(0.01);
-  gui.add(controls, 'ParticleEdge', 0, 5).step(0.01);
-  gui.addColor(controls, 'ParticleColor');
-  gui.addColor(controls, 'FlareColor');
-  gui.add(controls, 'EdgePow', 0, 5).step(0.01);
+  var f9 = gui.addFolder('Particle');
+  f9.add(controls, 'ParticleSize', -1, 1).step(0.01);
+  f9.add(controls, 'ParticleEdge', 0, 5).step(0.01);
+  f9.addColor(controls, 'ParticleColor');
 
   //
   function setShadowMoverScalar() {
@@ -787,9 +788,9 @@ function main() {
       mounDeferred.bindTexToUnit("tex_Specular", moun_specular, 7);
       mounDeferred.setSandDiffuse(vec4.fromValues(1.0, 1.0, 1.0, 1.0));
       renderer.renderToGBuffer(camera, mounDeferred, [scatter0], water); 
-      // mounDeferred.bindTexToUnit("tex_Color", terrain_diffuse, 0);
-      // mounDeferred.bindTexToUnit("tex_Normal", terrain_normal, 1);
-      // mounDeferred.bindTexToUnit("tex_Specular", terrain_specular, 2);  
+      mounDeferred.bindTexToUnit("tex_Color", terrain_diffuse, 0);
+      mounDeferred.bindTexToUnit("tex_Normal", terrain_normal, 1);
+      mounDeferred.bindTexToUnit("tex_Specular", terrain_specular, 2);  
       mounDeferred.setSandDiffuse(vec4.fromValues(controls.MounDiffuse[0]/255, controls.MounDiffuse[1]/255, controls.MounDiffuse[2]/255, 1.0));
       renderer.renderToGBuffer(camera, mounDeferred, [scatter1], water);
       renderer.renderToGBuffer(camera, ribbonDeferred, [scatter2], water); 

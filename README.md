@@ -2,6 +2,8 @@
 
 * Name: Hanming Zhang, Linshen Xiao
 
+![](img/5.png)
+
 ## Demo
 
 - [https://githublsx.github.io/homework-5-shape-grammar-city-githublsx/](https://githublsx.github.io/homework-5-shape-grammar-city-githublsx/);
@@ -18,9 +20,9 @@ The goal of this project is to create an environment that feels responsive and a
 
 ### Inspiration
 
-|!DreamTank|!Jounery|!Unlimited Blade Works|
+|DreamTank|Jounery|Unlimited Blade Works|
 |--------------|--------------|--------------|
-|![](img/DreamTank.jpg)|![](img/Jounery.png)|![](img/unlimited.gif)|
+|![](img/DreamTank.jpg)|![](img/Jounery.png)|![](img/Unlimited.png)|
 
 ### What we have done
 
@@ -97,6 +99,18 @@ The goal of this project is to create an environment that feels responsive and a
 - **Final Color Grading**: Light color, fog color changed when the inclination of the skybox changed;
 
 ### More screenshots
+
+|![](img/1.png)
+
+|![](img/2.png)
+
+|![](img/8.png)
+
+|![](img/4.png)
+
+|![](img/10.png)
+
+|![](img/11.png)
 
 ## Resources
 
