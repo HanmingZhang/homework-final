@@ -1,16 +1,19 @@
-# CIS 566 Final Project
+# CIS-566 Procedural Graphics Final Project
 
-* Name: Hanming Zhang, Linshen Xiao
+## Group Member: 
+- Hanming Zhang
+- Linshen Xiao
 
 ## Demo
 
-- [https://githublsx.github.io/homework-5-shape-grammar-city-githublsx/](https://githublsx.github.io/homework-5-shape-grammar-city-githublsx/);
+Since the whole demo scene is procedurally generated, **please wait for around 30s everytime your load it. If your browse pop up "not response" window, please click "wait".**
+- [Online Demo Link](https://githublsx.github.io/homework-5-shape-grammar-city-githublsx/)
 
 ## Overview
 
 ### Motivation
 
-We would like to create an animated environment with interactive procedural animations and models. I was motivated by games like Jounery and DreamTank. 
+We would like to create an animated environment with interactive procedural animations and models. We are motivated by games like Jounery and DreamTank. 
 
 ### Goal
 
@@ -18,9 +21,12 @@ The goal of this project is to create an environment that feels responsive and a
 
 ### Inspiration
 
-|!DreamTank|!Jounery|!Unlimited Blade Works|
+|DreamTank|Jounery|Unlimited Blade Works|
 |--------------|--------------|--------------|
 |![](img/DreamTank.jpg)|![](img/Jounery.png)|![](img/unlimited.gif)|
+
+### Screenshots
+ ![](img/)
 
 ### What we have done
 
@@ -60,14 +66,30 @@ The goal of this project is to create an environment that feels responsive and a
 **Hanming Zhang**
 
 - **Sky box**:
+	We use a Cubic sky box in our scene and the sky itself is procedurally generated in shader.
 - **ShadowMap**:
-- **Cinematic Camera**:(with fade in/out transition effect)
+	Here is a screenshot of shadow:
+	![](./img/shadow.jpg)
+
+	Shadow map is pre-baked when our scene is initialized so that we can save some time when render a frame. For some implemetation details, I refer to [WebGL Tutorial: Directional Shadow Mapping without extensions](http://www.chinedufn.com/webgl-shadow-mapping-tutorial/).
+- **Cinematic Camera**:
+	It's basically a time-driven key-frame simple system. In the scene initialization stage, we set several key-frames, and linear lerp camera's position and target position. Also, during the transition, we use some fade in/out post processing effect to make it more cinematic
 - **Water**:
-- **God ray**:
-- **Bloom**:
+	An independent pass is used to render a reflection frame. We save it in our frame buffer and use it as a texture in the following water rendering pass. Here is the pure refection effects and water we got:
+
+|![](./img/2.jpg) | ![](./img/4.jpg)|
+|-----------------|-----------------|
+|pure reflection  | water with reflection|
+
+- **God ray**
+- **Bloom**
 - **Deferred Shading Pipeline**:
+	Here is a basic view of our pipeline:
+	![](./img/pipeline.jpg)
 - **Particle System**:
-- **Background Music**:
+	Basic we use particles(0.1 million) to simulate sands effect on the terrain surface. Here is a screen shot of only particles:
+	![](./img/particles.gif)
+- **Audio**
 
 **Linshen Xiao**
 
@@ -96,17 +118,19 @@ The goal of this project is to create an environment that feels responsive and a
 	- Flare: Modified from [here](https://www.shadertoy.com/view/4sX3Rs);
 - **Final Color Grading**: Light color, fog color changed when the inclination of the skybox changed;
 
-### More screenshots
+### Bloop
+ ![](img/bloop.jpg)
 
 ## Resources
 
 - [Fractal Brownian Motion](https://thebookofshaders.com/13/)
 - [The shading of Dunes in Journey](https://zhuanlan.zhihu.com/p/33890890)
 - [Curl Noise](http://petewerner.blogspot.com/2015/02/intro-to-curl-noise.html)
-- [Chromatic Aberration](https://www.shadertoy.com/view/4ttXWM);
-- [Vignette](https://www.shadertoy.com/view/lsKSWR);
-- [FilmNoise](https://www.shadertoy.com/view/4sXSWs);
-- [Flare](https://www.shadertoy.com/view/4sX3Rs);
+- [Chromatic Aberration](https://www.shadertoy.com/view/4ttXWM)
+- [Vignette](https://www.shadertoy.com/view/lsKSWR)
+- [FilmNoise](https://www.shadertoy.com/view/4sXSWs)
+- [Flare](https://www.shadertoy.com/view/4sX3Rs)
+- [WebGL Tutorial: Directional Shadow Mapping without extensions](http://www.chinedufn.com/webgl-shadow-mapping-tutorial/)
 
 
 

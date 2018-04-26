@@ -1305,7 +1305,7 @@ class OpenGLRenderer {
 
     // create light "camera"
     let lightProjectionMatrix = mat4.create();
-    let orthoCamWidth = 270.0; 
+    let orthoCamWidth = 320.0; 
     let near = 0.1;
     let far = 5000.0;
     mat4.ortho(lightProjectionMatrix, -orthoCamWidth, orthoCamWidth , -orthoCamWidth / aspectRatio, orthoCamWidth / aspectRatio, near, far);
