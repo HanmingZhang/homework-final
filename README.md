@@ -12,7 +12,7 @@ Since the whole demo scene is procedurally generated, **please wait for around 3
 
 **Please remeber to press the "DemoMode" button!**
 
-- [Online Demo Link](https://githublsx.github.io/homework-5-shape-grammar-city-githublsx/)
+- [Online Demo Link](https://hanmingzhang.github.io/homework-final/)
 
 ## Overview
 
