@@ -8,7 +8,7 @@ const COLOR_LOCATION = 10;
 const TIME_LOCATION = 11;
 const ID_LOCATION = 12;
 
-const NUM_LOCATIONS = 5;
+const NUM_LOCATIONS = 12;
 
 
 class Particle{
@@ -100,6 +100,7 @@ class Particle{
             gl.bufferData(gl.ARRAY_BUFFER, this.particleIDs, gl.STATIC_READ);
             gl.vertexAttribPointer(ID_LOCATION, 1, gl.FLOAT, false, 0, 0);
             gl.enableVertexAttribArray(ID_LOCATION);
+
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
             
             // Set up output
@@ -108,8 +109,11 @@ class Particle{
             gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 1, this.particleVBOs[i][VELOCITY_LOCATION]);
             gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 2, this.particleVBOs[i][COLOR_LOCATION]);
             gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 3, this.particleVBOs[i][TIME_LOCATION]);
+
+            
             gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
         }
+
     }
 
     getVAO(idx: number): WebGLVertexArrayObject{

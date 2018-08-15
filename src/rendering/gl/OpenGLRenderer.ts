@@ -10,7 +10,7 @@ import Cube from '../../geometry/Cube';
 import Texture from '../../rendering/gl/Texture';
 import {CAMERA_MODE} from '../../main';
 import Water from '../../material/Water';
-import Plane from '../../material/Plane';
+// import Plane from '../../material/Plane';
 import Particle from '../../particles/Particle';
 
 // Particle System parameters
@@ -21,7 +21,9 @@ const COLOR_LOCATION = 10;
 const TIME_LOCATION = 11;
 const ID_LOCATION = 12;
 
-const NUM_LOCATIONS = 5;
+// Not used
+// const ID_LOCATION = 12;
+// const NUM_LOCATIONS = 5;
 
 var currentSourceIdx = 0; // ping-pong buffer index
 
@@ -687,27 +689,6 @@ class OpenGLRenderer {
     this.skyBoxShader.setProjMatrix(proj);
     this.skyBoxShader.setModelMatrix(SkyBox.model);
     this.skyBoxShader.draw(SkyBox);
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  }
-
-
-  processParticles(camera: Camera){
-    // 1. Transform Particles
-    this.transformParticles(camera, this.particle_transform, [
-      particle
-    ]);
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[1]);
-    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-    gl.disable(gl.DEPTH_TEST);
-    // gl.enable(gl.DEPTH_TEST);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    
-    // 2. Render
-    this.renderParticles(camera, this.particle_draw, particle_square, [particle]);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
@@ -1409,8 +1390,28 @@ class OpenGLRenderer {
   }
 
 
+  processParticles(camera: Camera){
+    // 1. Transform Particles
+    this.transformParticles(camera, this.particle_transform, [particle]);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[1]);
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    gl.disable(gl.DEPTH_TEST);
+    // gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    
+    // 2. Render
+    this.renderParticles(camera, this.particle_draw, particle_square, [particle]);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+
   transformParticles(camera: Camera, prog: ShaderProgram, particles: Array<Particle>){
     if(particles.length !== 0){
+
       let viewProj = mat4.create();
 
       mat4.multiply(viewProj, camera.projectionMatrix, camera.viewMatrix);
@@ -1446,12 +1447,14 @@ class OpenGLRenderer {
         // -------------- this portion is different --------------------
         // -------------------------------------------------------------
 
-        // Attributes per-vertex when doing transform feedback needs setting to 0 when doing transform feedback
+        // Attributes per-vertex when doing transform feedback needs setting to 0 
         gl.vertexAttribDivisor(POSITION_LOCATION, 0);
         gl.vertexAttribDivisor(VELOCITY_LOCATION, 0);
         gl.vertexAttribDivisor(COLOR_LOCATION, 0);
         gl.vertexAttribDivisor(TIME_LOCATION, 0);
-        
+        gl.vertexAttribDivisor(ID_LOCATION, 0);
+
+
         // Turn off rasterization - we are not drawing
         gl.enable(gl.RASTERIZER_DISCARD);
 
@@ -1465,6 +1468,7 @@ class OpenGLRenderer {
         gl.useProgram(null);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
         gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
+        // gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, null);
         // -------------------------------------------------------------
 
         // // Draw particles using transform feedback (pure dots)
@@ -1475,11 +1479,13 @@ class OpenGLRenderer {
 
       // Ping pong the buffers
       currentSourceIdx = (currentSourceIdx + 1) % 2;
+
     }
   }
 
   renderParticles(camera: Camera, prog: ShaderProgram, drawable: Drawable, particles: Array<Particle>) {
     if(particles.length !== 0){
+
       let viewProj = mat4.create();
 
       // Each column of the axes matrix is an axis. Right, Up, Forward.
@@ -1502,10 +1508,11 @@ class OpenGLRenderer {
         // Attributes per-instance when drawing sets back to 1 when drawing instances
         gl.vertexAttribDivisor(POSITION_LOCATION, 1);
         gl.vertexAttribDivisor(COLOR_LOCATION, 1);
-        
+
         // draw instances
         prog.draw(drawable, true, particles[i].numParticles);
       }      
+
     }
   }
 

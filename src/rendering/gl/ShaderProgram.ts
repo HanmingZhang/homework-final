@@ -693,12 +693,16 @@ class ShaderProgram {
     }
 
     d.bindIdx();
+
+    gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, null);
+    
     if(isInstanced){
       gl.drawElementsInstanced(d.drawMode(), d.elemCount(), gl.UNSIGNED_INT, 0, numInstances);      
     }
     else{
       gl.drawElements(d.drawMode(), d.elemCount(), gl.UNSIGNED_INT, 0);
     }
+    
     // gl.drawElements(d.drawMode(), d.elemCount(), gl.UNSIGNED_INT, 0);
 
     if (this.attrPos != -1) gl.disableVertexAttribArray(this.attrPos);
