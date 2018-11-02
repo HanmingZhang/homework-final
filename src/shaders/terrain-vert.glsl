@@ -140,5 +140,6 @@ void main()
     old_Nor = vs_Nor;
     fs_Nor = vec4(view * invTranspose * (vs_Nor.xyz), 0.0);
     gl_Position = u_Proj * u_View * u_Model * fs_Pos;
+
     fs_Pos = u_View * u_Model * fs_Pos;
 }

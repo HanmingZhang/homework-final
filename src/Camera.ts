@@ -26,7 +26,7 @@ class Camera {
   viewMatrix: mat4 = mat4.create();
   fovy: number = 45 * 3.1415962 / 180.0;
   aspectRatio: number = 1;
-  near: number = 0.1;
+  near: number = 5.0;
   far: number = 8000.0;
   position: vec3 = vec3.create();
   direction: vec3 = vec3.create();

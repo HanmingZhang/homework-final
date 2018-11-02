@@ -54,7 +54,7 @@ void main()
 
     fs_Pos = u_View * model_pos;
     
-    gl_Position = u_Proj * u_View * u_Model * vs_Pos;
+    gl_Position = u_Proj * u_View * model_pos;
 
     shadowPos = texUnitConverter * u_lightViewProj * model_pos;
 

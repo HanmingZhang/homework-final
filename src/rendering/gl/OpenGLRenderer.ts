@@ -651,23 +651,25 @@ class OpenGLRenderer {
       i++;
     }
 
-    // save water layer basic info
-    gbProg.setDeferredMaterialType(101);
-    gbProg.setModelMatrix(water.square.model);
+    if(water != null){
+      // save water layer basic info
+      gbProg.setDeferredMaterialType(101);
+      gbProg.setModelMatrix(water.square.model);
 
-    // -----------------------------------------------------
-    // create mirrored camera stuff
-    // water.reflectedView is set here
-    water.setReflectedView(camera);
-  
-    proj = camera.projectionMatrix;
+      // -----------------------------------------------------
+      // create mirrored camera stuff
+      // water.reflectedView is set here
+      water.setReflectedView(camera);
+    
+      proj = camera.projectionMatrix;
 
-    let reflectViewProj = mat4.create();
-    mat4.multiply(reflectViewProj, proj, water.reflectedView);
+      let reflectViewProj = mat4.create();
+      mat4.multiply(reflectViewProj, proj, water.reflectedView);
 
-    // -----------------------------------------------------
-    gbProg.setWorldReflectionViewProjection(reflectViewProj);
-    gbProg.draw(water.square)
+      // -----------------------------------------------------
+      gbProg.setWorldReflectionViewProjection(reflectViewProj);
+      gbProg.draw(water.square)
+    }
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
@@ -1212,6 +1214,7 @@ class OpenGLRenderer {
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.post32Buffers[0]);
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     gl.enable(gl.DEPTH_TEST);
+
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     let viewProj = mat4.create();

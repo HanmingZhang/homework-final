@@ -762,6 +762,7 @@ function main() {
     renderer.clear();
     renderer.clearGB();
 
+
     // debug shadow map
     if(controls.debugShadow){
       // Shadow map debug view
@@ -777,23 +778,24 @@ function main() {
       
       // forward render mesh info into gbuffers
       terrainDeferred.setGridSize(controls.GridSize);
-      renderer.renderToGBuffer(camera, terrainDeferred, [terrain], water); 
+      renderer.renderToGBuffer(camera, terrainDeferred, [terrain], null); 
       terrainDeferred.setGridSize(controls.GridSize2);
-      renderer.renderToGBuffer(camera, terrainDeferred, [terrain2], water);  
+      renderer.renderToGBuffer(camera, terrainDeferred, [terrain2], null);  
       mounDeferred.bindTexToUnit("tex_Color", moun_diffuse, 5);
       mounDeferred.bindTexToUnit("tex_Normal", moun_normal, 6);
       mounDeferred.bindTexToUnit("tex_Specular", moun_specular, 7);
       mounDeferred.setSandDiffuse(vec4.fromValues(1.0, 1.0, 1.0, 1.0));
-      renderer.renderToGBuffer(camera, mounDeferred, [scatter0], water); 
+      renderer.renderToGBuffer(camera, mounDeferred, [scatter0], null); 
       mounDeferred.bindTexToUnit("tex_Color", terrain_diffuse, 0);
       mounDeferred.bindTexToUnit("tex_Normal", terrain_normal, 1);
       mounDeferred.bindTexToUnit("tex_Specular", terrain_specular, 2);  
       mounDeferred.setSandDiffuse(vec4.fromValues(controls.MounDiffuse[0]/255, controls.MounDiffuse[1]/255, controls.MounDiffuse[2]/255, 1.0));
-      renderer.renderToGBuffer(camera, mounDeferred, [scatter1], water);
-      renderer.renderToGBuffer(camera, ribbonDeferred, [scatter2], water); 
+      renderer.renderToGBuffer(camera, mounDeferred, [scatter1], null);
+      renderer.renderToGBuffer(camera, ribbonDeferred, [scatter2], null); 
     
       // sky box
       renderer.renderSkyBox(camera);
+
 
       // water layer
       // renderer.renderWaterReflectionTexture(water, camera, [mesh0], [tex0]);
